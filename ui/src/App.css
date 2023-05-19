@@ -1,0 +1,53 @@
+.box-code-card .ant-card-body {
+  height: 300px;
+  overflow-y: auto;
+}
+
+.table-head-row {
+  margin-bottom: 10px;
+}
+
+.table-head-row .col-label {
+  line-height: 32px;
+}
+
+.table-head-row .col-input {
+  width: 150px;
+}
+
+.table-head-row .col-button {
+  float: right;
+}
+
+.CodeMirror {
+  border: 1px solid #eee;
+  height: 300px;
+}
+
+.CodeMirror-scroll {
+  height: 300px;
+  overflow-y: hidden;
+  overflow-x: 50px;
+}
+
+.pod .CodeMirror {
+  border: 1px solid #eee;
+  height: 650px;
+}
+
+.map .CodeMirror {
+  border: 1px solid #eee;
+  height: 500px;
+}
+
+.pod .CodeMirror-scroll {
+  height: 650px;
+  overflow-y: hidden;
+  overflow-x: auto;
+}
+
+.map .CodeMirror-scroll {
+  height: 500px;
+  overflow-y: hidden;
+  overflow-x: auto;
+}
