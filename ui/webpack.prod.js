@@ -38,14 +38,5 @@ module.exports = {
         }
       },
     },
-  },
-  externals: {
-    // TODO: ！！！！！！！！！！！！ 如果要私有化部署到内网需要去掉 externals !!!!!!!!!!!!!!s
-    // react: "React",
-    // "react-dom": "ReactDOM",
-    // moment: "moment",
-    // antd: "antd",
-    // lodash: "lodash",
-    // echarts: "echarts",
-  },
+  }
 };

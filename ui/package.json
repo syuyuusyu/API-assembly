@@ -1,7 +1,7 @@
 {
   "name": "invokeui",
   "version": "0.1.0",
-  "main": "dist/index.js",
+  "main": "src/index.js",
   "dependencies": {
     "@codemirror/lang-javascript": "^6.1.7",
     "@codemirror/lang-json": "^6.0.1",

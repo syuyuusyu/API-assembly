@@ -2,7 +2,7 @@
 
 import './App.css';
 import React,{useEffect, useState, useMemo,useCallback,createContext,useContext } from 'react';
-import {useAsync,useAsyncFn,useTween,useToggle} from 'react-use';
+import {useAsync,useToggle} from 'react-use';
 import lodash from 'lodash';
 import stringify from 'json-stringify-pretty-compact'
 
@@ -10,7 +10,7 @@ import { SearchOutlined,DeleteOutlined,EditOutlined,PlayCircleOutlined,SaveOutli
 import { ApiIcon,InvokeIcon,DuplicateIcon, } from './icon';
 import {Table,Row,Col,Card,Layout,Form,Select,Divider,Button,Modal,notification,Tag,Input,Space,message,Spin} from 'antd'
 
-const { Header, Footer, Sider, Content } = Layout;
+const { Header, Content } = Layout;
 
 const FormItem = Form.Item;
 const Option = Select.Option;
@@ -612,7 +612,6 @@ function ConfigTest({record}){
       _loading(true)
       const kknd = lodash.cloneDeep(record)
       kknd.parseFun = funValue
-      console.log(values)
       fetch(`${baseUrl}/invokeInfo/test`,{
         method: 'POST',
         headers: {
