@@ -14,3 +14,8 @@ exports.redis = {
   enable: true,
   package: 'egg-redis',
 };
+
+exports.static = {
+  enable: true,
+  package: 'egg-static',
+}

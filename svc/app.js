@@ -11,7 +11,7 @@ module.exports = app => {
         let invokeEntitys = await app.mysql.query(`select * from invoke_info`)
 
         let invokeEntityKeyMap = {}
-        for (var i = 0; i < invokeEntitys.length; i++) {
+        for (let i = 0; i < invokeEntitys.length; i++) {
             let e = invokeEntitys[i]
             invokeEntityKeyMap[e.name] = e.id
             ctx.service.redis.hset('invokeEntitys', e.id, e)

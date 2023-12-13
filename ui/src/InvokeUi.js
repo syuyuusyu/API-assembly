@@ -147,13 +147,13 @@ const InvokeUi=( {baseUrl} ) =>{
       width: 80,
       render: (text, record) => {
           return (
-              <span>
-                  <Button icon={<DuplicateIcon />} onClick={()=> openEditForm(record,true)} size='small'></Button>
-                  <Divider type="vertical" />
-                  <Button icon={<EditOutlined />} onClick={()=> openEditForm(record)} size='small'></Button>
-                  <Divider type="vertical" />
-                  <Button danger icon={<DeleteOutlined />} onClick={()=>deleteRecord(record.id,record.name)} size='small'></Button>
-              </span>
+            <span>
+              <Button icon={<DuplicateIcon />} onClick={() => openEditForm(record, true)} size="small"></Button>
+              <Divider type="vertical" />
+              <Button icon={<EditOutlined />} onClick={() => openEditForm(record)} size="small"></Button>
+              <Divider type="vertical" />
+              <Button danger icon={<DeleteOutlined />} onClick={() => deleteRecord(record.id, record.name)} size="small"></Button>
+            </span>
           );
       }
   }
@@ -327,11 +327,9 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
         closeFun.close()
 
       }else{
-        messageApi.error('error occure on service side, save faile')
+        messageApi.error('error occure on service side, save fail')
         closeFun.close()
       }
-     
-
     }).catch(() => {
       messageApi.error('invalied input')
     })
@@ -414,7 +412,7 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
                   <FormItem label="relevant request" name="next" rules={[{ required: isCallable, message: 'required!!' }]}>
                     <Select mode="multiple" placeholder="" optionFilterProp="label">
                       {
-                         allNames.map(_=> <Option key={_.id} label={_.name}>{_.name} ({_.description})</Option>)
+                        allNames.map(_=> <Option key={_.id} label={_.name}>{_.name} ({_.description})</Option>)
                       }
                     </Select>
                   </FormItem>
@@ -475,7 +473,7 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
               onCancel={_callTestVisible}
               maskClosable={false}
               destroyOnClose={true}>
-          <CallableTest record={record} />
+        <CallableTest  record={{ ...record,...form.getFieldsValue(), head: headValue, body: bodyValue, parseFun: funValue }} />
       </Modal>
       <Modal open={configTestVisible}
             width={1300}
@@ -484,7 +482,7 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
             onCancel={_configTestVisible}
             maskClosable={false}
             destroyOnClose={true}>
-        <ConfigTest record={record} />
+        <ConfigTest  record={{ ...record,...form.getFieldsValue(), head: headValue, body: bodyValue, parseFun: funValue }} />
       </Modal>
   </div>
   )
@@ -524,7 +522,6 @@ function CallableTest({record}){
       _loading(false)
     })
   }
-
 
   return (
     <div>
@@ -694,7 +691,6 @@ function ConfigTest({record}){
       </Row>      
     </div>
   )
-
 }
 
 export default InvokeUi;

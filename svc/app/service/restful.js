@@ -103,7 +103,6 @@ class RestfulService extends Service {
         let invokeResult;
         try {
             //let time = new Date() * 1
-            const ctx = this.app.createAnonymousContext();
             invokeResult = await this.app.curl(url, {
                 method: method,
                 data: data,
@@ -181,18 +180,18 @@ class RestfulService extends Service {
                 let currentCount = count;
                 let promises = result[invokeName].result.map(r => {
                     currentCount++;
-                    let currentQurtyObj = {};
-                    Object.assign(currentQurtyObj, queryObj);
+                    let currentQuertyObj = {};
+                    Object.assign(currentQuertyObj, queryObj);
                     let queryParams = this.queryParams(netxEn);
                     queryParams.forEach(p => {
                         if (r[p] == 0) {
-                            currentQurtyObj[p] = 0;
+                            currentQuertyObj[p] = 0;
                         }
                         if (r[p]) {
-                            currentQurtyObj[p] = r[p];
+                            currentQuertyObj[p] = r[p];
                         }
                     });
-                    return this._invoke(netxEn, currentQurtyObj, currentCount, result, recursionLevel, invokeName);
+                    return this._invoke(netxEn, currentQuertyObj, currentCount, result, recursionLevel, invokeName);
 
                 });
                 //promisesAll.concat(promises)

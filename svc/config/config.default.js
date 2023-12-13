@@ -1,6 +1,7 @@
 /* eslint valid-jsdoc: "off" */
 
 'use strict';
+const path = require('path')
 
 /**
  * @param {Egg.EggAppInfo} appInfo app info
@@ -14,9 +15,14 @@ module.exports = appInfo => {
 
   // use for cookie sign key, should change to your own and keep security
   config.keys = appInfo.name + '_1678344297406_5255';
-
-
-
+  config.static = {
+    prefix: '/',
+    dir: path.join(appInfo.baseDir, 'app/public'),
+    dynamic: true,
+    preload: false,
+    maxAge: 0,
+    buffer: false,
+  };
   config.middleware = [
     'restful',
   ];
@@ -26,32 +32,17 @@ module.exports = appInfo => {
   };
 
   config.mysql = {
-    client: {
-        host: '49.4.55.222',
-        port: '3306',
-        user: 'bqm',
-        password: '_s7hP@HG7(ZL!PEXaw',
-        database: 'bqm',
-        dialect: 'mysql'
-    },
-      // 是否加载到 app 上，默认开启
+      client: {
+          host: '127.0.0.1',
+          port: '3306',
+          user: 'root',
+          password: '1234',
+          database: 'rest',
+          dialect: 'mysql'
+      },
       app: true,
-      // 是否加载到 agent 上，默认关闭
-      agent: true,
+      agent: false,
   };
-
-  // config.mysql = {
-  //     client: {
-  //         host: '127.0.0.1',
-  //         port: '3306',
-  //         user: 'root',
-  //         password: '1234',
-  //         database: 'rest',
-  //         dialect: 'mysql'
-  //     },
-  //     app: true,
-  //     agent: false,
-  // };
 
   config.redis = {
     client: {

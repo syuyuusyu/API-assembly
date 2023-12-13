@@ -5,9 +5,9 @@
  */
 module.exports = app => {
   const { router, controller } = app;
-  router.get('/', controller.home.index);
+      router.get('/', controller.home.index);
 
-  router.get('/doNothing', controller.home.doNothing);
+      router.get('/doNothing', controller.home.doNothing);
 
       //接口调用
       router.get('/invokeEntityInfo', controller.restful.toPage);

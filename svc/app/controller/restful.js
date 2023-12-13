@@ -32,6 +32,7 @@ class RestfulController extends Controller {
         this.ctx.body = result;
     }
 
+
     systemInfo() {
         this.ctx.body = this.app.config.systemInfo;
     }
@@ -130,8 +131,6 @@ class RestfulController extends Controller {
             } catch (e) {
                 this.ctx.logger.error(e);
             }
-        } else {
-
         }
         //this.ctx.logger.info('运行解析函数后结果',result);
         this.ctx.body = result;
