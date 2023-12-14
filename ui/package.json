@@ -5,17 +5,18 @@
   "dependencies": {
     "@codemirror/lang-javascript": "^6.1.7",
     "@codemirror/lang-json": "^6.0.1",
+    "@testing-library/jest-dom": "^5.16.5",
+    "@testing-library/react": "^13.4.0",
+    "@testing-library/user-event": "^13.5.0",
     "@uiw/react-codemirror": "^4.19.16",
     "antd": "^5.4.6",
+    "dayjs": "^1.11.10",
     "json-stringify-pretty-compact": "^4.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-scripts": "5.0.1",
     "react-use": "^17.4.0",
-    "web-vitals": "^2.1.4",
-    "@testing-library/jest-dom": "^5.16.5",
-    "@testing-library/react": "^13.4.0",
-    "@testing-library/user-event": "^13.5.0"
+    "web-vitals": "^2.1.4"
   },
   "devDependencies": {
     "@babel/cli": "^7.21.5",
@@ -31,15 +32,19 @@
     "webpack-dev-server": "^4.13.3"
   },
   "babel": {
-    "presets": ["@babel/preset-env", "@babel/preset-react"],
-    "plugins": ["@babel/plugin-proposal-class-properties"]
+    "presets": [
+      "@babel/preset-env",
+      "@babel/preset-react"
+    ],
+    "plugins": [
+      "@babel/plugin-proposal-class-properties"
+    ]
   },
   "scripts": {
     "start": "webpack-dev-server --config webpack.dev.js",
     "build": "rimraf ./build && webpack-cli --config webpack.prod.js",
     "buildjs": "babel src --out-dir dist",
     "buildlib": "npx webpack --config webpack.lib.js"
-
   },
   "eslintConfig": {
     "extends": [

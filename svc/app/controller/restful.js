@@ -37,6 +37,33 @@ class RestfulController extends Controller {
         this.ctx.body = this.app.config.systemInfo;
     }
 
+    async logs(){
+        const { page, pageSize, invokeName, groupName, systemId,key } = this.ctx.request.body;
+        
+        let where = (invokeName && !/\s/.test(invokeName)) ? { name: invokeName } : {};
+        where = (groupName && !/\s/.test(groupName)) ? { ...where, groupName: groupName } : where;
+        where = (systemId && !/\s/.test(systemId)) ? { ...where, systemId: systemId } : where;
+        where = (key && !/\s/.test(key)) ? { ...where, key: key } : where;
+        let wherecount = (invokeName && !/\s/.test(invokeName)) ? `where name='${invokeName}'` : 'where 1=1';
+        wherecount = wherecount + ((groupName && !/\s/.test(groupName)) ? ` and groupname='${groupName}'` : '');
+        wherecount = wherecount + ((systemId && !/\s/.test(systemId)) ? ` and systemId='${systemId}'` : '');
+        wherecount = wherecount + ((key && !/\s/.test(key)) ? ` and \`key\`='${key}'` : '');
+        let result = {};
+        let [{ total }] = await this.app.mysql.query(`select count(1) total from invoke_log ${wherecount}`, []);
+
+        const offset = (page - 1) * pageSize;
+        let content = await this.app.mysql.select('invoke_log', {
+            where,
+            limit: Number(pageSize),
+            offset: Number(offset),
+            orders: [['date', 'desc']]
+        });
+
+        result.totalElements = total;
+        result.content = content;
+        this.ctx.body = result;
+    }
+
     async save() {
         const entity = this.ctx.request.body;
         if (!entity.next) entity.next = null;

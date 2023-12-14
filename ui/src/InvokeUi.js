@@ -48,7 +48,7 @@ const InvokeUi=( {baseUrl} ) =>{
   
   const [pagination,_pagination] = useState({
     current: 1,
-    total: 10,
+    total: 0,
     size: 'small',
     pageSize: 20,
     showTotal: (total, range) => `${range[0]}-${range[1]} of ${total} items`,
@@ -204,7 +204,7 @@ const InvokeUi=( {baseUrl} ) =>{
                 </Select>
               </FormItem>
               <FormItem  name="invokeName" >
-                <Select style={{ width: '400px' }} allowClear={true} showSearch placeholder="" optionFilterProp="label" placeholder="search for name">
+                <Select style={{ width: '400px' }} allowClear={true} showSearch  placeholder="search for name" optionFilterProp="label" >
                     {
                         queryNames.names.map(_=> <Option key={_.name} label={_.name}>{_.name} ({_.description})</Option>)
                     }
@@ -212,7 +212,7 @@ const InvokeUi=( {baseUrl} ) =>{
               </FormItem>
 
               <FormItem name='groupName' >
-                <Select style={{ width: '200px' }} allowClear={true} showSearch placeholder="" optionFilterProp="label" placeholder="search for group name">
+                <Select style={{ width: '200px' }} allowClear={true} showSearch placeholder="search for group name"  optionFilterProp="label" >
                     {
                         queryNames.groupNames.map(_=> <Option key={_.name} label={_.name}>{_.name}</Option>)
                     }
@@ -241,7 +241,7 @@ const InvokeUi=( {baseUrl} ) =>{
               dataSource={dataSource}
               rowSelection={null}
               size="small"
-              scroll={{ y: 800 }}
+              scroll={{ y: 1000 }}
               expandedRowRender={expandedRowRender}
               pagination={pagination}
               loading={loading}
@@ -279,7 +279,7 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
 
   const checkUnique =async (rule, value) =>{
     if(!value){
-      return Promise.reject()
+      return Promise.reject('')
     }
     if(record.name== value){
       return Promise.resolve()
@@ -288,7 +288,7 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
     if (json.total === 0) {
       return Promise.resolve()
     } else {
-      return Promise.reject()
+      return Promise.reject('')
     }
   }
 

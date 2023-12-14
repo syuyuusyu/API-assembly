@@ -14,6 +14,7 @@ module.exports = app => {
       router.get('/systemInfo', controller.restful.systemInfo);
       router.post('/invokeInfo/infos', controller.restful.infos);
       router.post('/invokeInfo/invokes', controller.restful.invokes);
+      router.post('/invokeInfo/logs', controller.restful.logs);
       router.post('/invokeInfo/test', controller.restful.test);
       router.post('/invokeInfo/save', controller.restful.save);
       router.delete('/invokeInfo/delete/:id', controller.restful.delete);
