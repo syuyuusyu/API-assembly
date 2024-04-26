@@ -612,10 +612,10 @@ function CallableTest({record}){
   )
 }
 
-export { CallableTest }
+
 
 function ConfigTest({record}){
-  const baseUrl = useContext(BaseUrlContext);
+  const baseUrl = record.baseUrl ? record.baseUrl:useContext(BaseUrlContext);
   const [loading, _loading] = useToggle(false)
   const [messageApi, contextHolder] = message.useMessage();
   const [form] = Form.useForm()
@@ -728,5 +728,6 @@ function ConfigTest({record}){
     </div>
   )
 }
+export { ConfigTest }
 
 export default InvokeUi;

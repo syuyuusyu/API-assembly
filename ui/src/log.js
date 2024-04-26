@@ -10,7 +10,7 @@ import dayjs from 'dayjs';
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 import { SeeIcon,RerunIcon } from './icon';
-import { CallableTest } from './InvokeUi';
+import { ConfigTest } from './InvokeUi';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -53,7 +53,6 @@ const Log=( {baseUrl} ) =>{
     const [currentRecod,_currentRecod] = useState({})
   
     const {value:dataSource,loading } = useAsync( async()=>{
-      console.log(`${baseUrl}/invokeInfo/logs`)
       const json = await post(`${baseUrl}/invokeInfo/logs`,{
         page:pagination.current, pageSize: pagination.pageSize, invokeName, groupName, systemId,key
       })
@@ -200,23 +199,37 @@ const Log=( {baseUrl} ) =>{
 const Detail=( {record} ) =>{
 
   const baseUrl = useContext(BaseUrlContext);
-  const [rerunVisible, _rerunVisible] = useToggle(false);  
+  const [rerunVisible, _rerunVisible] = useToggle(false);
+
+  const {value:config = {} } = useAsync( async()=>{
+    const json = await post(`${baseUrl}/invokeInfo/infos`,{
+      page:1, pageSize: 1, invokeName:record.name
+    })
+    if(json.totalElements && json.totalElements==1){
+      return json.content[0]
+    }
+    return {}
+  },[])
 
   return (
     <>
       <Modal open={rerunVisible}
-        width={1300}
-        title={'rerun'}
-        footer={null}
-        onCancel={_rerunVisible}
-        maskClosable={false}
-        destroyOnClose={true}>
-        <CallableTest record={{name:record.name,head:record.head,body:record.request,baseUrl:baseUrl} }/>
+          width={1300}
+          title={'rerun'}
+          footer={null}
+          onCancel={_rerunVisible}
+          maskClosable={false}
+          destroyOnClose={true}>
+          <ConfigTest record={{url:record.url,method:record.method,name:record.name,head:record.head,body:record.request,baseUrl:baseUrl,parseFun:config.parseFun} }/>
       </Modal>
       <Descriptions title={<span style={{ display: 'flex', alignItems: 'center' }}>
           <span>{record.descrption}</span>
           <span style={{ marginLeft: 'auto' }}>
-            <Button icon={<RerunIcon />} onClick={_rerunVisible} size="small"></Button>
+            {
+              config.name ?
+              <Button icon={<RerunIcon />} onClick={_rerunVisible} size="small"></Button>
+              :''
+            }
           </span>
         </span>} bordered >
         <Descriptions.Item label="url" span={3}>{record.url}</Descriptions.Item>
