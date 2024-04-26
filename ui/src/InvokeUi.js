@@ -523,7 +523,8 @@ function EditForm({record,isCallable,systemInfo=[],allNames=[],closeFun={} }){
 }
 
 function CallableTest({record}){
-  const baseUrl = useContext(BaseUrlContext);
+
+  const baseUrl = record.baseUrl ? record.baseUrl:useContext(BaseUrlContext);
 
   const [loading, _loading] = useToggle(false)
 
@@ -611,6 +612,8 @@ function CallableTest({record}){
   )
 }
 
+export { CallableTest }
+
 function ConfigTest({record}){
   const baseUrl = useContext(BaseUrlContext);
   const [loading, _loading] = useToggle(false)
@@ -634,7 +637,7 @@ function ConfigTest({record}){
     return kknd
   })
 
-  const execute =  () =>{
+  const execute = () =>{
     form.validateFields().then(async (values)=>{
       _oresult('{}')
       _presult('{}')

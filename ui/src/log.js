@@ -1,5 +1,5 @@
 import './App.css';
-import React,{ useState,createContext } from 'react';
+import React,{ useState,createContext,useContext } from 'react';
 import {useAsync,useToggle} from 'react-use';
 import lodash from 'lodash';
 import stringify from 'json-stringify-pretty-compact'
@@ -9,7 +9,8 @@ import {Table,Layout,Form,Select,Divider,Button,Modal,Descriptions,Tag,Input,Spa
 import dayjs from 'dayjs';
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
-import { SeeIcon } from './icon';
+import { SeeIcon,RerunIcon } from './icon';
+import { CallableTest } from './InvokeUi';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -197,34 +198,54 @@ const Log=( {baseUrl} ) =>{
 }
 
 const Detail=( {record} ) =>{
+
+  const baseUrl = useContext(BaseUrlContext);
+  const [rerunVisible, _rerunVisible] = useToggle(false);  
+
   return (
-    <Descriptions title={record.descrption} bordered  >
-      <Descriptions.Item label="url" span={3}>{record.url}</Descriptions.Item>
-      <Descriptions.Item label="http code" >{record.code}</Descriptions.Item>
-      <Descriptions.Item label="method" >{record.method}</Descriptions.Item>
-      <Descriptions.Item label="date" >{dayjs(record.date).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-      <Descriptions.Item label={ <Tag color="#108ee9">request head</Tag>} span={3}>
-        <CodeMirror
-          value={stringify( JSON.parse(record.head),{ indent: 2 })}
-          extensions={[codeJson()]}
-          style={{ width: '1050px', overflowWrap: 'break-word' }}
-        />
-      </Descriptions.Item>
-      <Descriptions.Item label={<Tag color="#108ee9">request body</Tag>} span={3}>
-        <CodeMirror
-          value={stringify( JSON.parse(record.request),{ indent: 2 })}
-          extensions={[codeJson()]}
-          style={{ width: '1050px', overflowWrap: 'break-word' }}
-        />
-      </Descriptions.Item>
-      <Descriptions.Item label={ <Tag color="#108ee9">response</Tag>} span={3}>
-        <CodeMirror
-          value={stringify( JSON.parse(record.response),{ indent: 2 })}
-          extensions={[codeJson()]}
-          style={{ width: '1050px', overflowWrap: 'break-word' }}
-        />
-      </Descriptions.Item>            
-    </Descriptions>
+    <>
+      <Modal open={rerunVisible}
+        width={1300}
+        title={'rerun'}
+        footer={null}
+        onCancel={_rerunVisible}
+        maskClosable={false}
+        destroyOnClose={true}>
+        <CallableTest record={{name:record.name,head:record.head,body:record.request,baseUrl:baseUrl} }/>
+      </Modal>
+      <Descriptions title={<span style={{ display: 'flex', alignItems: 'center' }}>
+          <span>{record.descrption}</span>
+          <span style={{ marginLeft: 'auto' }}>
+            <Button icon={<RerunIcon />} onClick={_rerunVisible} size="small"></Button>
+          </span>
+        </span>} bordered >
+        <Descriptions.Item label="url" span={3}>{record.url}</Descriptions.Item>
+        <Descriptions.Item label="http code" >{record.code}</Descriptions.Item>
+        <Descriptions.Item label="method" >{record.method}</Descriptions.Item>
+        <Descriptions.Item label="date" >{dayjs(record.date).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
+        <Descriptions.Item label={ <Tag color="#108ee9">request head</Tag>} span={3}>
+          <CodeMirror
+            value={stringify( JSON.parse(record.head),{ indent: 2 })}
+            extensions={[codeJson()]}
+            style={{ width: '1050px', overflowWrap: 'break-word' }}
+          />
+        </Descriptions.Item>
+        <Descriptions.Item label={<Tag color="#108ee9">request body</Tag>} span={3}>
+          <CodeMirror
+            value={stringify( JSON.parse(record.request),{ indent: 2 })}
+            extensions={[codeJson()]}
+            style={{ width: '1050px', overflowWrap: 'break-word' }}
+          />
+        </Descriptions.Item>
+        <Descriptions.Item label={ <Tag color="#108ee9">response</Tag>} span={3}>
+          <CodeMirror
+            value={stringify( JSON.parse(record.response),{ indent: 2 })}
+            extensions={[codeJson()]}
+            style={{ width: '1050px', overflowWrap: 'break-word' }}
+          />
+        </Descriptions.Item>
+      </Descriptions>
+    </>
   )
 }
 
