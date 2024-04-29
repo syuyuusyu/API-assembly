@@ -19,11 +19,10 @@
 ## 场景1 配置并转发第三方接口
 
 系统有两种不同概念的配置 `API Configuration`和`Callable API`
-| | |  
 | --- | --- |
 | `API Configuration` | 配置第三方接口的调用信息，本身不会做为新的接口发布 |
 | `Callable API` | 发布一个新的可被外界调用的接口，需要关联`API Configuration`使用 | 
-|  |  |
+
 
 现有两个第三方接口 (正常情况下接口应来自其他系统，这里为了举列，只能调用自身配置的接口) 
 ```
@@ -92,7 +91,7 @@ relevant request 的配置表示可以通过该接口调用 `transform_city` `tr
     }
 }
 ``` 
-采用这样的形式是因为在其他使用场景时，obj对象会很复杂，单在这里只需要使用`this.defaultValue(obj)` 即可获取想要的结果
+采用这样的形式是因为在其他使用场景时，obj对象会很复杂，但在这里只需要使用`this.defaultValue(obj)` 即可获取想要的结果
 
 点击TEST 按钮可以打开调用接口的测试页面 ![calltest](./readmePic/calltest.png)
 由于 `http://127.0.0.1:7001/invoke/transform_data` 已经是一个可以对外调用的接口，所以这里也可以使用其他接口工具如 curl或postman来调用。
