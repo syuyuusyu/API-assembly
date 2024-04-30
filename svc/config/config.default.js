@@ -85,8 +85,7 @@ module.exports = appInfo => {
       name: 'example'
     }
   ]
-
-
+  
   return config
 };
 

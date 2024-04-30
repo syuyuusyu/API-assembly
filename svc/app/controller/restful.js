@@ -166,9 +166,7 @@ class RestfulController extends Controller {
                     },
                     keyList : function(obj,keyName){
                         let keys = Object.keys(obj);
-                        return keys.filter(key => key.startsWith(keyName)).filter(key=>obj[key]).map(key => {
-                            return obj[key]
-                        }).reduce((a,b)=>a.concat(b))
+                        return keys.filter(key => key.startsWith(keyName)).filter(key=>obj[key]).map(key=>obj[key]).flat()
                     }
                 }
                 let fn = evil(entity.parseFun);
