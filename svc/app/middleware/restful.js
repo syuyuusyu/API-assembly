@@ -1,6 +1,6 @@
 module.exports = (options, app) => {
     return async function restful(ctx, next) {
-        ctx.logger.info('url');
+        ctx.logger.info(ctx.request.url);
         const keyMap = await ctx.service.redis.get('invokeEntityKeyMap')
         ctx.keyMap = keyMap
         const invokeName = ctx.request.url.replace('/invoke/', '');
