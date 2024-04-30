@@ -20,6 +20,6 @@
 /svc/deploy.sh
 /svc/logs
 /svc/run
-/svc/config/config.bqm_test.js
+/svc/config/config.bqm.js
 .DS_Store
 

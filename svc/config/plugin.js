@@ -15,7 +15,7 @@ exports.redis = {
   package: 'egg-redis',
 };
 
-exports.static = {
-  enable: true,
-  package: 'egg-static',
-}
+// exports.static = {
+//   enable: true,
+//   package: 'egg-static',
+// }
