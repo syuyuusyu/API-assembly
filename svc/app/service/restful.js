@@ -29,8 +29,6 @@ class RestfulService extends Service {
                 dataType: 'json',
                 timeout: 200000,
             });
-            //let time2 = new Date() * 1
-            //console.log('span time', (time2 - time)/1000)
         } catch (e) { 
             invokeResult = {
                 data: {
@@ -96,7 +94,6 @@ class RestfulService extends Service {
 
         let invokeResult;
         try {
-            //let time = new Date() * 1
             invokeResult = await this.app.curl(url, {
                 method: method,
                 data: requestBody,
@@ -112,6 +109,7 @@ class RestfulService extends Service {
             this.ctx.logger.info(e);
             //throw e;
             invokeResult = {
+                status: 505,
                 data: {
                     'msg': '调用接口错误!!',
                     'url': url,
@@ -146,11 +144,9 @@ class RestfulService extends Service {
         if (entity.parseFun) {
             try {
                 const callObj = {
-                    addToParent:function(childName = 'children'){
-                        if(recursionLevel > 1){
-                            _childName = childName
-                            _addToParent = true
-                        }
+                    addToParent:function(childName = 'children'){                 
+                        _childName = childName
+                        _addToParent = true
                     }
                 }
                 let fn = evil(entity.parseFun);
@@ -158,7 +154,7 @@ class RestfulService extends Service {
                 invokeResult.data = s
                 if(_addToParent){
                     if(previousReseult){
-                        previousReseult [_childName] = s
+                        previousReseult[_childName] = s
                     }else if(result[previousInvokeName][sameLevelIndex]){
                         result[previousInvokeName][sameLevelIndex][_childName] = s
                     }
