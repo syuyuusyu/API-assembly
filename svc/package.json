@@ -1,5 +1,5 @@
 {
-  "name": "rest_allocate",
+  "name": "api_assembly",
   "version": "1.0.0",
   "description": "",
   "private": true,
@@ -24,9 +24,10 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "start": "egg-scripts start  --title=egg-server-rest_allocate",
-    "stop": "egg-scripts stop --title=egg-server-rest_allocate",
+    "start": "egg-scripts start  --title=api_assembly",
+    "stop": "egg-scripts stop --title=api_assembly",
     "dev": "egg-bin dev",
+    "bqm": "egg-bin dev --config=config.bqm_test.js",
     "debug": "egg-bin debug",
     "test": "npm run lint -- --fix && npm run test-local",
     "test-local": "egg-bin test",
