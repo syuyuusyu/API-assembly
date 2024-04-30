@@ -144,7 +144,7 @@ class RestfulController extends Controller {
                 if (invokeName === 'msg' || invokeName === 'success') {
                     continue;
                 }
-                result[invokeName] = r[invokeName].result;
+                result[invokeName] = r[invokeName]
             }
         }
         //this.ctx.logger.info('集成就调用结果:', result);

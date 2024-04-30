@@ -47,7 +47,6 @@ class RestfulService extends Service {
         let presult = {}
         if (entity.parseFun) {
             try {
-                console.log(entity.parseFun)
                 let fn = evil(entity.parseFun);
                 presult = fn(invokeResult.data, invokeResult.headers, invokeResult.status, head, data, url);
             } catch (e) {
@@ -72,40 +71,36 @@ class RestfulService extends Service {
         }
         let count = 1,
             recursionLevel = 1,
-            lastinvokeName = entity.name,
+            previousInvokeName = entity.name,
             result = {};
 
-        await this._invoke(entity, queryObj, count, result, recursionLevel, lastinvokeName);
+        await this._invoke(entity, queryObj, count, result, recursionLevel, previousInvokeName,undefined,undefined);
         return result;
     }
 
-    async _invoke(entity, queryObj, count, result, recursionLevel, lastinvokeName) {
-    
-        let invokeName = '';
-        (lastinvokeName + '-' + count).replace(/(?=\S+)((?:-\d+)+)/, (w, p1) => {
-            invokeName = entity.name + p1;
-            return entity.name + p1;
+    async _invoke(entity, queryObj, count, result, recursionLevel, previousInvokeName,sameLevelIndex,previousReseult) {
+        let _childName = '',
+            _addToParent = false,
+            invokeName = '';
+        (previousInvokeName + '-' + count).replace(/(?=\S+)((?:-\d+)+)/, (w, p1) => {
+            invokeName = entity.name + p1
+            return entity.name + p1
         });
         result[invokeName] = {};
-        let url = this.parseByqueryMap(entity.url, queryObj);
-        let method = entity.method.toUpperCase();
-        let data = this.parseByqueryMap(entity.body, queryObj);
-        data = JSON.parse(data);
-        let head = this.parseByqueryMap(entity.head, queryObj);
-        head = JSON.parse(head);
-        // this.ctx.logger.info('url:', url);
-        // this.ctx.logger.info('method:', method);
-        // this.ctx.logger.info('head:', head);
-        // this.ctx.logger.info('body:', data);
-
+        let url = this.parseByqueryMap(entity.url, queryObj)
+        let method = entity.method.toUpperCase()
+        let requestBody = this.parseByqueryMap(entity.body, queryObj)
+        requestBody = JSON.parse(requestBody)
+        let requestHead = this.parseByqueryMap(entity.head, queryObj)
+        requestHead = JSON.parse(requestHead)
 
         let invokeResult;
         try {
             //let time = new Date() * 1
             invokeResult = await this.app.curl(url, {
                 method: method,
-                data: data,
-                headers: head,
+                data: requestBody,
+                headers: requestHead,
                 dataType: 'json',
                 timeout: 200000,
             });
@@ -121,7 +116,7 @@ class RestfulService extends Service {
                     'msg': '调用接口错误!!',
                     'url': url,
                     'method:': method,
-                    'head:': head,
+                    'head:': requestHead,
                     'body:': data,
                     'description': e.toString(),
                     'exception': true
@@ -132,18 +127,17 @@ class RestfulService extends Service {
 
         if (entity.enableLog == '1') {
             this.app.mysql.insert('invoke_log', {
-                key: head.logKey,
+                key: requestHead.logKey,
                 name: entity.name,
                 groupName: entity.groupName,
                 code: invokeResult.status,
-                request: JSON.stringify(data),
+                request: JSON.stringify(requestBody),
                 response: JSON.stringify(invokeResult.data),
                 date: this.app.mysql.literals.now,
                 descrption: entity.descrption,
                 url: url,
                 method: method,
-                head: JSON.stringify(head)
-
+                head: JSON.stringify(requestHead)
             })
         }
         //this.ctx.logger.info('status',invokeResult.status);
@@ -151,33 +145,47 @@ class RestfulService extends Service {
 
         if (entity.parseFun) {
             try {
-                
+                const callObj = {
+                    addToParent:function(childName = 'children'){
+                        if(recursionLevel > 1){
+                            _childName = childName
+                            _addToParent = true
+                        }
+                    }
+                }
                 let fn = evil(entity.parseFun);
-                let s = fn(invokeResult.data, invokeResult.headers, invokeResult.status, head, data, url);
-                //response,responsehead,responsestatus,requesthead,requestdata,url,logger,redis
-                //this.ctx.logger.info('afterPares',invokeResult.data);
-                result[invokeName].result = s;
+                let s = fn.call(callObj,invokeResult.data, invokeResult.headers, invokeResult.status, requestHead, requestBody, url);
+                invokeResult.data = s
+                if(_addToParent){
+                    if(previousReseult){
+                        previousReseult [_childName] = s
+                    }else if(result[previousInvokeName][sameLevelIndex]){
+                        result[previousInvokeName][sameLevelIndex][_childName] = s
+                    }
+                    delete result[invokeName]
+                }else{
+                    result[invokeName] = s
+                }
+                
             } catch (e) {
+                console.log(e)
                 this.ctx.logger.error('运行解析函数错误');
-                this.ctx.logger.info('response,responsehead,responsestatus,requesthead,requestdata,url');
-                this.ctx.logger.info('解析参数\n', '----->\n', invokeResult.data, '\n', invokeResult.headers, '\n', invokeResult.status, '\n', head, '\n', data, '\n', url, '<------\n');
+                this.ctx.logger.info('response,responsehead,responsestatus,requesthead,requestBody,url');
+                this.ctx.logger.info('解析参数\n', '----->\n', invokeResult.data, '\n', invokeResult.headers, '\n', invokeResult.status, '\n', requestHead, '\n', requestBody, '\n', url, '<------\n');
                 this.ctx.logger.info('解析析函', entity.parseFun);
-                result[invokeName].result = invokeResult.data;
+                _addToParent = false
+                result[invokeName] = invokeResult.data;
             }
         } else {
-            result[invokeName].result = invokeResult.data;
+            result[invokeName] = invokeResult.data;
         }
-
-        result[invokeName].body = data;
-        result[invokeName].head = head;
-        result[invokeName].url = url;
-        if (entity.next && result[invokeName].result.map) {
+        if (entity.next && invokeResult.data.map) {
             recursionLevel++;
             let promisesAll=[]
             let nextEntitys = await this.ctx.service.redis.hmget('invokeEntitys', entity.next.split(','))
             for (let netxEn of nextEntitys) {
                 let currentCount = count;
-                let promises = result[invokeName].result.map(r => {
+                let promises = invokeResult.data.map((r,index) => {
                     currentCount++;
                     let currentQuertyObj = {};
                     Object.assign(currentQuertyObj, queryObj);
@@ -190,11 +198,8 @@ class RestfulService extends Service {
                             currentQuertyObj[p] = r[p];
                         }
                     });
-                    return this._invoke(netxEn, currentQuertyObj, currentCount, result, recursionLevel, invokeName);
-
+                    return this._invoke(netxEn, currentQuertyObj, currentCount, result, recursionLevel, invokeName,index,r);
                 });
-                //promisesAll.concat(promises)
-                //await Promise.all(promises);
                 promisesAll.push(Promise.all(promises))
             }
             await Promise.all(promisesAll);
