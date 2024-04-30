@@ -152,6 +152,9 @@ class RestfulController extends Controller {
             try {
                 const callObj = {
                     defaultValue : function(obj,keyName){
+                        if(obj.map){
+                            obj = obj[0]
+                        }
                         let keys = Object.keys(obj);
                         let key = ''
                         if(keyName){
@@ -165,6 +168,9 @@ class RestfulController extends Controller {
                         return  obj[key]
                     },
                     keyList : function(obj,keyName){
+                        if(obj.map){
+                            obj = obj[0]
+                        }
                         let keys = Object.keys(obj);
                         return keys.filter(key => key.startsWith(keyName)).filter(key=>obj[key]).map(key=>obj[key]).flat()
                     }

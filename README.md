@@ -1,30 +1,33 @@
-# 本项目用于配置并转发第三方接口
+# This project is used to configure and forward third-party interfaces. [中文](README_C.md)
 
-在调用其他系统的接口时，通常需要将返回的数据按照自己的需求进行转化，比如数据的格式或某个字段的名称，本项目的主要作用就是提供一个使用配置的方式执行 js 代码的运行环境，让使用者可以自行编写 js代码来执行上面的数据转化的需求，并且将配置好的内容发布成一个新的接口，这样在调用不同第三方的接口时，可以将它们转化成统一的数据格式和统一的字段命名，以方便具体的业务逻辑代码调用。
+This project primarily serves the purpose of providing a runtime environment for executing JavaScript code using configurations. Users can write JavaScript code to fulfill their data transformation needs, such as changing the data format or renaming certain fields. The configured content can then be published as a new interface. This allows for the transformation of data from different third-party interfaces into a unified format with consistent field names, facilitating the invocation of specific business logic code.
 
 # useage
 
-代码运行需要node,MySQL,Redis环境,只适用于JSON格式的接口  
-首先在`/svc/config/config.default.js`中配置mysql和redis的链接信息,
-并且执行`/svc/initial.sql`中的建表语句  
-在 /svc 目录下,执行`npm i`安装所需依赖，相同目录下执行 `npm start`启动程序  
-通过 http://127.0.0.1:7001/index.html 访问程序配置页面
+The code requires a Node.js, MySQL, and Redis environment and is only suitable for JSON-format interfaces. 
 
-/ui 文件下是前端页面的代码，将`/ui/build/`的文件复制到`/svc/app/public/`下，即可通过`http://127.0.0.1:7001/index.html`访问
+1. First, configure the MySQL and Redis connection information in `/svc/config/config.default.js`.
+2. Execute the table creation statements in `/svc/initial.sql`.
+3. In the `/svc` directory, run `npm i` to install the required dependencies.
+4. Then, in the same directory, run `npm start` to start the program.
+5. Access the program configuration page via http://127.0.0.1:7001/index.html.
+
+Under the `/ui` directory, you'll find the frontend page code. Copy the files from `/ui/build/` to `/svc/app/public/`, and then you can access it via `http://127.0.0.1:7001/index.html`.
 
 # example
 
-下面通过三个比较典型的场景来介绍具体的使用方式，请先将 /svc/example.sql 中的示例配置导入数据库
+Below, I'll introduce the specific usage through three typical scenarios. First, import the example configurations from /svc/example.sql into the database.
 
-## 场景1 配置并转发第三方接口
+## Scenario 1: Configuring and Forwarding Third-Party Interfaces
 
-系统有两种不同概念的配置 `API Configuration`和`Callable API`
-| --- | --- |
-| `API Configuration` | 配置第三方接口的调用信息，本身不会做为新的接口发布 |
-| `Callable API` | 发布一个新的可被外界调用的接口，需要关联`API Configuration`使用 | 
+The system has two different concepts of configuration: "API Configuration" and "Callable API."
+
+- **API Configuration**: This configures the invocation information for third-party interfaces but does not itself serve as a new interface for publication.
+  
+- **Callable API**: This publishes a new interface that can be called externally and requires association with an "API Configuration" for use.
 
 
-现有两个第三方接口 (正常情况下接口应来自其他系统，这里为了举列，只能调用自身配置的接口) 
+There are two third-party interfaces available (normally, these interfaces would come from other systems, but here, for demonstration purposes, they are self-configured).
 ```
 http://127.0.0.1:7001/invoke/mock_city
  {
@@ -38,52 +41,48 @@ http://127.0.0.1:7001/invoke/mock_district
     "cityId":"xxxx"
  }
 ```
-者两个接口分别通过`provinceId`查询城市的列表，通过`cityId`查询地区的列表  
+The two interfaces respectively query the list of cities through `provinceId` and the list of areas through `cityId`.
 
-如需要创建一个新的配置，点击页面 `new API Configuration`,打开一个接口配置页面，这里直接点击 `transform_city` 这条记录的编辑图标按钮即可
-下面以mock_city接口 为列说明具体的配置 ![mock_city配置](./readmePic/transform_city.png)  
+To create a new configuration, click on "New API Configuration" on the page to open an interface configuration page. Here, simply click on the edit icon button for the "transform_city" record.
+Below is an example illustrating the specific configuration of the `mock_city` interface. ![mock_city](./readmePic/transform_city.png)  
 
 
 ### system
-和`svc/config/config.default.js` 文件中的`config.systemInfo`配置关联，使用者需要根据自己的实际需求修改这个配置
+Associated with the `config.systemInfo` configuration in the `svc/config/config.default.js` file, users need to modify this configuration according to their actual needs.
 
 ### name
-调用的名称，要求全局唯一
+The name of the call must be globally unique.
 
 ### group name
-用来查询使用，通常把几个业务逻辑相关的接口放在一组
+It's used for querying purposes, and typically groups several related business logic interfaces together.
 
 ### save log
-配置为YES的话如果调用该接口，会将调用的信息记录到`invoke_log`表中，在页面上LOG的Tab中可以查看记录，同时在请求头中有一个`"logKey":"@requestField"`的配置，这个配置不是必须的，配置以后日志会以 @requestField 的值为关键字记录，方便查询。
+If configured as YES, invoking this interface will record the call information in the "invoke_log" table. You can view the records in the LOG tab on the page. Additionally, there's an optional configuration in the request header called "logKey": "@requestField". When configured, the logs will be recorded with the value of @requestField as the keyword, making it easier to query.
 
 ### URL
-第三方接口的地址。@baseUrl 是程序保留的关键字，在调用时会被替换成`config.systemInfo`中对应 url的内容，也可以不使用 @baseUrl,直接使用接口原本的地址
+The address of the third-party interface. "@baseUrl" is a reserved keyword in the program and will be replaced with the corresponding URL content in `config.systemInfo` when invoked. Alternatively, you can choose not to use "@baseUrl" and directly use the original address of the interface.
 
 ### relevant request
-在下一个使用场景中介绍
+Will be introduced in the next use case.
 
 ### request body
-请求的参数，使用 @xxx 作为参数的占位符，在具体调用接口时，具体传入的值会将URL，head，body中的 @xxx 的值替换，具体调用的方式会在随后介绍
+The request parameters use @xxx as placeholders. When calling the interface, the specific values passed in will replace the values of @xxx in the URL, headers, and body. The specific calling method will be introduced later.
 
 ### paraphrase function
-一段合法的js 代码，用来将接口返回的接口解析为使用者想要的格式，方法的回调参数  
-`resObj, resHead, resStatus, reqHead, reqBody, url` 
-分别对应
-responseBody,responseHead,httpCode,requestHead,requestBody,url
-在图中的列子中，改变了数据的结构和字段名称，并将 requestBody 中的字段 requestField 方到返回结果中
 
-配置完成后可以点击 TEST 按钮打开测试页面来确认配置是否正确 ![test](./readmePic/test.png)  
-在前面的页面中使用 @xxx 标记的字段会作为参数要求调用者赋值，在解析函数上下的两个窗口中的内容分别对应了接口原生返回的数据和通过解析函数处理过的数据，如果解析函数本身有错误，下面的窗口可能不会正常显示。可以在这个窗口中修改和调试解析函数。（<span style="color: red;">调试完成后，请将解析函数的内容复制到前一个窗口进行保存，当前窗口不会保存修改的内容</span>）
+A valid JavaScript code snippet, used to parse the data returned by the interface into the format desired by the user, with the method callback parameters `resObj`, `resHead`, `resStatus`, `reqHead`, `reqBody`, and `url` respectively corresponding to `responseBody`, `responseHead`, `httpCode`, `requestHead`, `requestBody`, and `url`. In the example, the structure and field names of the data are modified, and the field `requestField` in the `requestBody` is added to the result.
 
-### 将上面的配置发布成一个新的接口
+After configuration is completed, you can click the TEST button to open the test page and confirm if the configuration is correct. ![test](./readmePic/test.png)  
 
-如需要创建一个新的接口，点击页面 `new Callable API`,打开一个接口配置页面，这里直接点击 `transform_data` 这条记录的编辑图标按钮即可。![callable](./readmePic/callable.png)
+Fields marked with @xxx in the previous page will be required as parameters for the caller to provide. The content in the two windows above and below the parsing function corresponds to the data returned by the original interface and the data processed by the parsing function, respectively. If there is an error in the parsing function itself, the window below may not display properly. You can modify and debug the parsing function in this window. (<span style="color: red;">After debugging, please copy the content of the parsing function to the previous window for saving. The content modified in the current window will not be saved.</span>)
 
-这里的 name 会做为新接口名称，程序将会发布一个URL为
-`http://127.0.0.1:7001/invoke/transform_data` 的post接口  
-relevant request 的配置表示可以通过该接口调用 `transform_city` `transform_district`这两个配置好的第三方接口
+### Publish the above configuration as a new interface.
 
-在解析函数中使用一个内置函数 `this.defaultValue(obj)` 获取到第三方接口返回的值，这里的obj 中的内容在外面多套了一层，类似这样:
+If you need to create a new interface, click on the "new Callable API" page, and open an interface configuration page. Here, you can directly click on the edit icon button for the "transform_data" record.![callable](./readmePic/callable.png)
+
+The name here will be used as the new interface name, and the program will publish a POST interface with the URL `http://127.0.0.1:7001/invoke/transform_data`. The configuration of relevant requests indicates that the `transform_city` and `transform_district` interfaces can be called through this interface.
+
+In the parsing function, use a built-in function `this.defaultValue(obj)` to retrieve the value returned by the third-party interface. Here, the content in `obj` has an extra layer wrapped around it, similar to this:
 ```
 {
     transform_city:{
@@ -91,35 +90,37 @@ relevant request 的配置表示可以通过该接口调用 `transform_city` `tr
     }
 }
 ``` 
-采用这样的形式是因为在其他使用场景时，obj对象会很复杂，但在这里只需要使用`this.defaultValue(obj)` 即可获取想要的结果
+Using this format because in other use cases, the `obj` object can be quite complex, but here, only `this.defaultValue(obj)` is needed to obtain the desired result.
 
-点击TEST 按钮可以打开调用接口的测试页面 ![calltest](./readmePic/calltest.png)
-由于 `http://127.0.0.1:7001/invoke/transform_data` 已经是一个可以对外调用的接口，所以这里也可以使用其他接口工具如 curl或postman来调用。
+Clicking the TEST button opens a testing page for calling the interface  ![calltest](./readmePic/calltest.png)
+ Since http://127.0.0.1:7001/invoke/transform_data is already an externally callable interface, other interface tools such as curl or postman can also be used to call it.
 
-这里先补充一下 @xxx 占位符的使用，入参
-```
+Here's some additional information about the usage of the @xxx placeholders for input parameters:
+
+In the input JSON:
+```json
 {
   "activeMethod":"transform_city",
   "provinceId":"500000",
   "requestField":"some value"
 }
 ```
-是根据 `transform_city` 中的配置
-```
+The fields after @xxx are determined based on the configuration of `transform_city`:
+```json
 {
   "provinceId":"@provinceId",
   "requestField":"@requestField"
 }
 ```
-决定的 @xxx 后面的 xxx 才是调用是入参的字段，比如现在将`transform_city`的配置修改为
-```
+So, the xxx after @xxx represents the fields used as input parameters during the call. For example, if the configuration of `transform_city` is modified as follows:
+```json
 {
   "provinceId":"@id",
   "requestField":"@field"
 }
 ```
-那么调用的入参也要对应修改为
-```
+Then the corresponding input parameters during the call should also be modified accordingly:
+```json
 {
   "activeMethod":"transform_city",
   "id":"500000",
@@ -127,23 +128,23 @@ relevant request 的配置表示可以通过该接口调用 `transform_city` `tr
 }
 ```
 
-由于`transform_data` 关联了两个配置`transform_city` `transform_district`，所以需要使用参数 `"activeMethod":"transform_city"` 来指定需要调用那个配置，  
-也可以使用`"activeMethod":["transform_city","transform_district"]` 来同时调用者两个配置，这种情况需要入参中加入`transform_district`所需要的参数，同时外层的解析函数也需要对应修改，类似这样
-```
+Since `transform_data` is associated with two configurations, `transform_city` and `transform_district`, the parameter `"activeMethod":"transform_city"` is used to specify which configuration to call. Alternatively, you can use `"activeMethod":["transform_city","transform_district"]` to call both configurations simultaneously. In this case, the input parameters should include the parameters required for `transform_district`, and the outer parsing function should also be modified accordingly, like this:
+```json
 {
-  activeMethod":["transform_city","transform_district"],
+  "activeMethod":["transform_city","transform_district"],
   "provinceId":"500000",
   "requestField":"some value",
   "cityId":"xxxx" //parameter for transform_district
 }
-``` 
-如不传递 activeMethod这个参数，会同时调用所有关联的个配置，如果某个配置的参数没有被正确传递，则会导致返回结果异常。  
-让一个`Callable API` 关联多个 `API Configuration`，并在调用时使用`"activeMethod":"xxx"`来指定需要调用那个配置是比较常见的使用方式。
+```
+If the activeMethod parameter is not passed, all associated configurations will be called simultaneously. If parameters for a certain configuration are not correctly passed, it may lead to abnormal results.
+
+It's common to associate multiple `API Configuration` with a single `Callable API` and use `"activeMethod":"xxx"` during the call to specify which configuration to use.
 
 
-## 场景2 组合多个接口
+## Scene 2: Assembling Multiple Interfaces
 
-假设现在有3个第三方接口
+Assuming there are now three third-party interfaces.
 ```
 http://127.0.0.1:7001/invoke/mock_province
  {}
@@ -162,30 +163,29 @@ http://127.0.0.1:7001/invoke/mock_district
     "cityId":"xxxx"
  }
 ```
-接口`mock_district`的参数需要通过接口`mock_city`查询，接口`mock_city` 的参数又要需要通过接口`mock_province` 查询,在这种情况下，就可以通过先调用`mock_province`，然后在关联调用`mock_city`，再关联调用`mock_district`，将3个接口组合起来，再使用一个可调用的接口配置去关联`mock_province`，封装成一个接口，就可以一次获取3个接口下的所有信息。
-这种组合最常见的业务场景是假设有第一个第三方业务系统提供了两个接口，一个获取资源的列表，根据列表中的参数又何以去获取资源的详情，那么把两个接口组合起来就可以一次获取列表和详情
+The parameter of the interface `mock_district` needs to be queried through the interface `mock_city`, and the parameters of the interface `mock_city` need to be queried through the interface `mock_province`. In this case, you can combine the three interfaces by first calling `mock_province`, then associating with `mock_city`, and then associating with `mock_district`, thus obtaining all information under the three interfaces in one go. This combination is commonly used in scenarios where a third-party business system provides two interfaces: one for fetching a list of resources, and another for fetching details of resources based on parameters in the list. Combining these two interfaces allows you to fetch both the list and details in one go.
 
-打开`assemble_province`的配置页面![assemble_province](./readmePic/assemble_province.png)
-可以这里关联了`assemble_city`,由于`assemble_city`的入参是
+Open the configuration page of `assemble_province`.![assemble_province](./readmePic/assemble_province.png)
+
+Open the configuration page of `assemble_province`. It is associated with `assemble_city`. Since the parameters of `assemble_city` are as follows:
 ```
 {
   "provinceId":"@provinceId"
 }
 ```
-所以在这里的解析函数中加入了一个新的字段
+a new field has been added to the parsing function here:
 ```
 {
     provinceId:o.id,
     ...o
 }
 ```
-这样`assemble_province`的结果就可以作为`assemble_city`的入参，程序会在前面的接口返回后去调用下级的关联的接口。(这里调用下级关联接口还有一个条件，就当前接口的返回值必须是一个数组，按照数组的每一项去并发调用下级接口) 
-这个过程是并发进行的，得益于node的并发机制，我个人在生存环境中使用这样的调用没有遇到性能问题。
+This way, the result of `assemble_province` can be used as the input parameter for `assemble_city`. The program will call the subordinate associated interface after the previous interface returns. (Here, calling the subordinate associated interface also has a condition: the return value of the current interface must be an array, and the subordinate interface will be called concurrently for each item in the array.) Thanks to the concurrent mechanism of Node.js, I personally haven't encountered any performance issues using this type of calling in a production environment.
 
-`assemble_city` 的配置和`assemble_province`类似。
+The configuration of `assemble_city` is similar to that of `assemble_province`.
 
-现在回到可调用接口`assemble_all`的配置，它关联了`assemble_province`，层层关联后就可以取到所有的数据，取到的数据大概是这样的
-```
+Now, let's go back to the configuration of the callable interface `assemble_all`, which is associated with `assemble_province`. After multiple layers of association, all the data can be retrieved. The retrieved data looks something like this:
+```json
 {
   "assemble_province-1": [
     {"provinceId": "110000", "id": "110000", "parentId": "0", "name": "北京市", "type": "province"},
@@ -221,14 +221,14 @@ http://127.0.0.1:7001/invoke/mock_district
   ]
 }
 ```
-所有的数据通过 `name-序号` 的形式平铺在一个对象中，这里的序号是为了保证所有的key 不重复，序号本身没有业务逻辑上的意义，使用者需要按照自身的需要将数据拼接起来，在解析函数中，`const districtList = this.keyList(obj,'assemble_district')` `this.keyLists`是一个内置函数，它将所有以相同name 开头的数据拼接成一个数组， 可调用接口的解析函数中一共有两个内置函数。另一个是前面提到的`this.defauleValue`。
+All the data is tiled in an object in the form of `name-number`. Here, the number ensures that all the keys are unique; the number itself does not have any logical significance. Users need to concatenate the data according to their needs. In the parsing function, `const districtList = this.keyList(obj,'assemble_district')`. `this.keyLists` is a built-in function that concatenates all data starting with the same name into an array. There are two built-in functions in the parsing function of the callable interface. The other one is the previously mentioned `this.defaultValue`.
 
-通过示列中的解析函数，上面的解析成了最后的形式。读者可以自行调用接口查看最终的结果
+With the parsing function in the example, the data is parsed into the final form. Readers can call the interface themselves to view the final result.
 
 
-## 场景3 生成模拟数据
+## Scenario 3: Generating Mock Data
 
-上面介绍内容是基于自身配置模拟数据接口实现的，可以查询对应 mock 的配置查看具体的细节，程序本身有一个 http://127.0.0.1:7001/doNothing 的接口，这个接口返回一个空对象，可以使用这个接口的解析函数返回 mock 数据，也可以在这里保存一些其他程序需要的json格式的配置数据，这样其他程序可以调用接口来获取这些配置，这样其他程序就不用专门建表来处理某些配置信息，并且修改也十分方便。
+The above introduction is based on configuring mock data interfaces. You can query the corresponding mock configurations for specific details. The program itself has an interface at `http://127.0.0.1:7001/doNothing`, which returns an empty object. You can use the parsing function of this interface to return mock data, or you can save some JSON-formatted configuration data that other programs need here. This way, other programs can call the interface to obtain these configurations without having to create tables specifically to handle certain configuration information, and modifications are also very convenient.
 
 
 
