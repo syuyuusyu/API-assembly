@@ -79,11 +79,13 @@ class RestfulService extends Service {
     async _invoke(entity, queryObj, count, result, recursionLevel, previousInvokeName,sameLevelIndex,previousReseult) {
         let _childName = '',
             _addToParent = false,
-            invokeName = '';
-        (previousInvokeName + '-' + count).replace(/(?=\S+)((?:-\d+)+)/, (w, p1) => {
-            invokeName = entity.name + p1
-            return entity.name + p1
-        });
+            invokeName = previousInvokeName;
+        if(recursionLevel>1){
+            (previousInvokeName + '-' + count).replace(/(?=\S+)((?:-\d+)+)/, (w, p1) => {
+                invokeName = entity.name + p1
+                return entity.name + p1
+            });
+        }
         result[invokeName] = {};
         let url = this.parseByqueryMap(entity.url, queryObj)
         let method = entity.method.toUpperCase()
@@ -151,6 +153,10 @@ class RestfulService extends Service {
                 }
                 let fn = evil(entity.parseFun);
                 let s = fn.call(callObj,invokeResult.data, invokeResult.headers, invokeResult.status, requestHead, requestBody, url);
+                if(!s){
+                    delete result[invokeName]
+                    return
+                }
                 invokeResult.data = s
                 if(_addToParent){
                     if(previousReseult){

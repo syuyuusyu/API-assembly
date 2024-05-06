@@ -185,20 +185,6 @@ class RestfulController extends Controller {
         this.ctx.body = result;
     }
 
-    parse(obj) {
-        let result = {};
-        for (let o of obj) {
-            for (let key in o) {
-                let name = '';
-                key.replace(/cloud_(\w+)-1/, (w, p1) => {
-                    name = p1;
-                });
-                result[name] = o[key];
-            }
-        }
-        return result;
-    }
-
     async delete() {
         const id = this.ctx.params.id
         const result = await this.app.mysql.delete('invoke_info', {
