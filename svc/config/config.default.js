@@ -32,28 +32,49 @@ module.exports = appInfo => {
     match: /\/invoke\//,
   };
 
+  // config.mysql = {
+  //     client: {
+  //         host: '127.0.0.1',
+  //         port: '3306',
+  //         user: 'root',
+  //         password: '1234',
+  //         database: 'rest',
+  //         dialect: 'mysql'
+  //     },
+  //     app: true,
+  //     agent: false,
+  // };
+
+  // config.redis = {
+  //   client: {
+  //       port: 6379,
+  //       host: '127.0.0.1',
+  //       password: '',
+  //       db: 0,
+  //   },
+  // };
+
   config.mysql = {
-      client: {
-          host: '127.0.0.1',
-          port: '3306',
-          user: 'root',
-          password: '1234',
-          database: 'rest',
-          dialect: 'mysql'
-      },
-      app: true,
-      agent: false,
-  };
-
-  config.redis = {
     client: {
-        port: 6379,
-        host: '127.0.0.1',
-        password: '',
-        db: 0,
+        host: '49.4.55.222',
+        port: '3306',
+        user: 'bqm_test',
+        password: 'i9bq5t!XfZ_8=3Gpyy',
+        database: 'bqm_test',
+        dialect: 'mysql'
     },
-  };
+    app: true,
+    agent: false,
+};
 
+config.redis = {
+  client: {
+      port: 6379,
+      host: '49.4.13.146',
+      password: 'n7d3t7x7',
+      db: 1,
+  },
+};
 
   config.logger = {
     //disableConsoleAfterReady: false,
@@ -73,18 +94,71 @@ module.exports = appInfo => {
     allowMethods: 'GET,HEAD,PUT,POST,DELETE,PATCH',
   }
 
+  // config.systemInfo = [
+  //   {
+  //       systemId: 1,
+  //       url: 'http://127.0.0.1:7001',
+  //       name: 'mock'
+  //   },
+  //   {
+  //     systemId: 2,
+  //     url: 'http://127.0.0.1:7001',
+  //     name: 'example'
+  //   }
+  // ]
+
   config.systemInfo = [
     {
         systemId: 1,
-        url: 'http://127.0.0.1:7001',
-        name: 'mock'
+        url: 'http://218.63.110.21:8090',
+        name: '昭通中联his'
     },
     {
-      systemId: 2,
-      url: 'http://127.0.0.1:7001',
-      name: 'example'
+        systemId: 2,
+        url: 'http://112.115.169.180:88',
+        name: '云大东软his'
+    },
+    {
+        systemId: 3,
+        url: 'http://127.0.0.1:60010',
+        name: '昆明皮肤病医院'
+    },
+    {
+        systemId: 5,
+        url: '',
+        name: '其他'
+    },
+    {
+        systemId: 7,
+        url: 'http://218.63.11.33:8090',
+        name: '昭通市中医院'
+    },
+    {
+        systemId: 4,
+        url: 'http://his.szprism.com',
+        name: '红日药业'
+    },
+    {
+        systemId: 9,
+        url: 'http://183.224.113.185:9900',
+        name: '滇东北区域医疗中心'
+    },
+    {
+        systemId: 10,
+        url: 'http://218.63.110.21:9900',
+        name: '昭一院东软'
+    },
+    {
+        systemId: 11,
+        url: 'http://127.0.0.1:60011',
+        name: '云南圣约翰医院'
+    },
+    {
+        systemId: 12,
+        url: 'http://39.129.120.175:9000',
+        name: '元谋医共体'
     }
-  ]
+]
   return config
 };
 

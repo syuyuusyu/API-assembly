@@ -210,15 +210,19 @@ class RestfulService extends Service {
 
     parseByqueryMap(str, queryMap) {
         return str.replace(/(@(\w+))/g, (w, p1, p2) => {
-            if (queryMap[p2] === 0) {
-                return 0
+            const value = queryMap[p2];
+            if (value === 0) {
+                return 0;
             }
-            if (queryMap[p2] === '') {
-                return ''
+            if (value === '') {
+                return '';
             }
-            return queryMap[p2] ? queryMap[p2] : p1;
+            if (typeof value === 'object') {
+                return JSON.stringify(value); // 显式序列化对象
+            }
+            return value ? value : p1;
         });
-    };
+    }
 
     queryParams(entity) {
         let queryStr = '' + entity.url + entity.head + entity.body;
