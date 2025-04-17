@@ -32,49 +32,29 @@ module.exports = appInfo => {
     match: /\/invoke\//,
   };
 
-  // config.mysql = {
-  //     client: {
-  //         host: '127.0.0.1',
-  //         port: '3306',
-  //         user: 'root',
-  //         password: '1234',
-  //         database: 'rest',
-  //         dialect: 'mysql'
-  //     },
-  //     app: true,
-  //     agent: false,
-  // };
-
-  // config.redis = {
-  //   client: {
-  //       port: 6379,
-  //       host: '127.0.0.1',
-  //       password: '',
-  //       db: 0,
-  //   },
-  // };
-
   config.mysql = {
-    client: {
-        host: '49.4.55.222',
-        port: '3306',
-        user: 'bqm_test',
-        password: 'i9bq5t!XfZ_8=3Gpyy',
-        database: 'bqm_test',
-        dialect: 'mysql'
-    },
-    app: true,
-    agent: false,
-};
+      client: {
+          host: '127.0.0.1',
+          port: '3306',
+          user: 'root',
+          password: '1234',
+          database: 'rest',
+          dialect: 'mysql'
+      },
+      app: true,
+      agent: false,
+  };
 
-config.redis = {
-  client: {
-      port: 6379,
-      host: '49.4.13.146',
-      password: 'n7d3t7x7',
-      db: 1,
-  },
-};
+  config.redis = {
+    client: {
+        port: 6379,
+        host: '127.0.0.1',
+        password: '',
+        db: 0,
+    },
+  };
+
+
 
   config.logger = {
     //disableConsoleAfterReady: false,
