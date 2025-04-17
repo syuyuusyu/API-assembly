@@ -74,71 +74,19 @@ module.exports = appInfo => {
     allowMethods: 'GET,HEAD,PUT,POST,DELETE,PATCH',
   }
 
-  // config.systemInfo = [
-  //   {
-  //       systemId: 1,
-  //       url: 'http://127.0.0.1:7001',
-  //       name: 'mock'
-  //   },
-  //   {
-  //     systemId: 2,
-  //     url: 'http://127.0.0.1:7001',
-  //     name: 'example'
-  //   }
-  // ]
-
   config.systemInfo = [
     {
         systemId: 1,
-        url: 'http://218.63.110.21:8090',
-        name: '昭通中联his'
+        url: 'http://127.0.0.1:7001',
+        name: 'mock'
     },
     {
-        systemId: 2,
-        url: 'http://112.115.169.180:88',
-        name: '云大东软his'
-    },
-    {
-        systemId: 3,
-        url: 'http://127.0.0.1:60010',
-        name: '昆明皮肤病医院'
-    },
-    {
-        systemId: 5,
-        url: '',
-        name: '其他'
-    },
-    {
-        systemId: 7,
-        url: 'http://218.63.11.33:8090',
-        name: '昭通市中医院'
-    },
-    {
-        systemId: 4,
-        url: 'http://his.szprism.com',
-        name: '红日药业'
-    },
-    {
-        systemId: 9,
-        url: 'http://183.224.113.185:9900',
-        name: '滇东北区域医疗中心'
-    },
-    {
-        systemId: 10,
-        url: 'http://218.63.110.21:9900',
-        name: '昭一院东软'
-    },
-    {
-        systemId: 11,
-        url: 'http://127.0.0.1:60011',
-        name: '云南圣约翰医院'
-    },
-    {
-        systemId: 12,
-        url: 'http://39.129.120.175:9000',
-        name: '元谋医共体'
+      systemId: 2,
+      url: 'http://127.0.0.1:7001',
+      name: 'example'
     }
-]
+  ]
+
   return config
 };
 
