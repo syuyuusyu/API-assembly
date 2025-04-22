@@ -15,7 +15,7 @@ module.exports = app => {
             ctx.service.redis.hset('invokeEntitys', e.id, e)
         }
         await ctx.service.redis.set('invokeEntityKeyMap', invokeEntityKeyMap)
-
+        app.logger.info(app.config.profile);
 
     })
 
