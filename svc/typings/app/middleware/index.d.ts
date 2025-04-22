@@ -3,10 +3,12 @@
 /* eslint-disable */
 
 import 'egg';
+import ExportAuthor = require('../../../app/middleware/Author');
 import ExportRestful = require('../../../app/middleware/restful');
 
 declare module 'egg' {
   interface IMiddleware {
+    author: typeof ExportAuthor;
     restful: typeof ExportRestful;
   }
 }

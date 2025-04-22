@@ -173,6 +173,30 @@ class RestfulController extends Controller {
                         }
                         let keys = Object.keys(obj);
                         return keys.filter(key => key.startsWith(keyName)).filter(key=>obj[key]).map(key=>obj[key]).flat()
+                    },
+                    preciseMultiply:function(num1, num2) {
+                        // 将数字转换为字符串以分析小数位
+                        const str1 = num1.toString();
+                        const str2 = num2.toString();
+                        
+                        // 获取小数点后的位数
+                        const decimalPlaces1 = str1.includes('.') ? str1.split('.')[1].length : 0;
+                        const decimalPlaces2 = str2.includes('.') ? str2.split('.')[1].length : 0;
+                        
+                        // 总的小数位数
+                        const totalDecimalPlaces = decimalPlaces1 + decimalPlaces2;
+                        
+                        // 将小数转换为整数（移除小数点）
+                        const int1 = Number(str1.replace('.', ''));
+                        const int2 = Number(str2.replace('.', ''));
+                        
+                        // 整数相乘
+                        const product = int1 * int2;
+                        
+                        // 调整小数点位置（除以 10 的 totalDecimalPlaces 次方）
+                        const result = product / Math.pow(10, totalDecimalPlaces);
+                        
+                        return result;
                     }
                 }
                 let fn = evil(entity.parseFun);

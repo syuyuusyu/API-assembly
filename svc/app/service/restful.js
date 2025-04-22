@@ -63,7 +63,7 @@ class RestfulService extends Service {
     }
 
     async invoke(entity, queryObj) {
-        if (entity.systemId) {
+        if (entity.systemId && !queryObj.baseUrl) {
             const baseUrl = this.app.config.systemInfo.find(s => s.systemId == entity.systemId).url;
             queryObj.baseUrl = baseUrl;
         }
@@ -117,7 +117,7 @@ class RestfulService extends Service {
                     'url': url,
                     'method:': method,
                     'head:': requestHead,
-                    'body:': data,
+                    'body:': requestBody,
                     'description': e.toString(),
                     'exception': true
                 }
@@ -149,6 +149,30 @@ class RestfulService extends Service {
                     addToParent:function(childName = 'children'){                 
                         _childName = childName
                         _addToParent = true
+                    },
+                    preciseMultiply:function(num1, num2) {
+                        // 将数字转换为字符串以分析小数位
+                        const str1 = num1.toString();
+                        const str2 = num2.toString();
+                        
+                        // 获取小数点后的位数
+                        const decimalPlaces1 = str1.includes('.') ? str1.split('.')[1].length : 0;
+                        const decimalPlaces2 = str2.includes('.') ? str2.split('.')[1].length : 0;
+                        
+                        // 总的小数位数
+                        const totalDecimalPlaces = decimalPlaces1 + decimalPlaces2;
+                        
+                        // 将小数转换为整数（移除小数点）
+                        const int1 = Number(str1.replace('.', ''));
+                        const int2 = Number(str2.replace('.', ''));
+                        
+                        // 整数相乘
+                        const product = int1 * int2;
+                        
+                        // 调整小数点位置（除以 10 的 totalDecimalPlaces 次方）
+                        const result = product / Math.pow(10, totalDecimalPlaces);
+                        
+                        return result;
                     }
                 }
                 let fn = evil(entity.parseFun);
@@ -185,13 +209,28 @@ class RestfulService extends Service {
             recursionLevel++;
             let promisesAll=[]
             let nextEntitys = await this.ctx.service.redis.hmget('invokeEntitys', entity.next.split(','))
-            for (let netxEn of nextEntitys) {
+            for (let nextEn of nextEntitys) {
                 let currentCount = count;
-                let promises = invokeResult.data.map((r,index) => {
+                let promises = invokeResult.data.filter(r=>{
+                    if(r.noNext===true){
+                        return false
+                    }
+                    if (r.nextEn) {
+    
+                        if(isArrsy(r.nextEn) && !r.netxEn.includes(nextEn.name)){
+                            return false
+                        }else{
+                            if(r.nextEn != nextEn.name){
+                                return false
+                            }
+                        }
+                    }
+                    return true
+                }).map((r,index) => {
                     currentCount++;
                     let currentQuertyObj = {};
                     Object.assign(currentQuertyObj, queryObj);
-                    let queryParams = this.queryParams(netxEn);
+                    let queryParams = this.queryParams(nextEn);
                     queryParams.forEach(p => {
                         if (r[p] == 0) {
                             currentQuertyObj[p] = 0;
@@ -200,7 +239,7 @@ class RestfulService extends Service {
                             currentQuertyObj[p] = r[p];
                         }
                     });
-                    return this._invoke(netxEn, currentQuertyObj, currentCount, result, recursionLevel, invokeName,index,r);
+                    return this._invoke(nextEn, currentQuertyObj, currentCount, result, recursionLevel, invokeName,index,r);
                 });
                 promisesAll.push(Promise.all(promises))
             }
