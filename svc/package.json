@@ -28,7 +28,7 @@
   "scripts": {
     "start": "egg-scripts start  --title=api_assembly",
     "stop": "egg-scripts stop --title=api_assembly",
-    "dev": "EGG_SERVER_ENV=bqm egg-bin dev",
+    "dev": "egg-bin dev",
     "debug": "egg-bin debug",
     "test": "npm run lint -- --fix && npm run test-local",
     "test-local": "egg-bin test",
