@@ -12,7 +12,7 @@ module.exports = (options, app) => {
             ctx.userId = json.userId;
             await next();
         }catch (e) {
-	        ctx.logger.info(e)
+            ctx.logger.info(e)
             ctx.logger.info('token失效!!!');
             ctx.status = 401;
             ctx.body = { status: 401, message: 'token失效' };
