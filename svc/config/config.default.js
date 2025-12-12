@@ -31,26 +31,38 @@ module.exports = (appInfo) => {
   };
 
   config.mysql = {
+      client: {
+          host: '127.0.0.1',
+          port: '3306',
+          user: 'root',
+          password: '1234',
+          database: 'rest',
+          dialect: 'mysql'
+      },
+      app: true,
+      agent: false,
+  };
+  config.mysql = {
     client: {
-        host: '127.0.0.1',
-        port: '3306',
-        user: 'root',
-        password: '1234',
-        database: 'rest',
-        dialect: 'mysql'
+      host: "49.4.55.222",
+      port: "3306",
+      user: "bqm",
+      password: "_s7hP@HG7(ZL!PEXaw",
+      database: "bqm",
+      dialect: "mysql",
     },
     app: true,
     agent: false,
-};
+  };
 
-config.redis = {
-  client: {
-      port: 6379,
-      host: '127.0.0.1',
-      password: '',
-      db: 0,
-  },
-};
+  config.redis = {
+    client: {
+        port: 6379,
+        host: '127.0.0.1',
+        password: '',
+        db: 0,
+    },
+  };
 
   config.logger = {
     //disableConsoleAfterReady: false,

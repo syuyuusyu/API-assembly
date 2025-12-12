@@ -46,7 +46,10 @@ class RestfulService extends Service {
         if (entity.parseFun) {
             try {
                 let fn = evil(entity.parseFun);
+                console.log(data)
+                console.log('presult before parse function:', presult);
                 presult = fn(invokeResult.data, invokeResult.headers, invokeResult.status, head, data, url);
+                console.log('presult after parse function:', presult);
             } catch (e) {
                 presult = {
                     msg : 'Error running parse function',
@@ -56,6 +59,7 @@ class RestfulService extends Service {
         } else {
             presult = invokeResult.data
         }
+        console.log('presult:', presult);
         return {
             oresult : invokeResult.data,
             presult : presult
