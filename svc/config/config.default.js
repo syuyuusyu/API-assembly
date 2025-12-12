@@ -32,7 +32,7 @@ module.exports = (appInfo) => {
 
   config.mysql = {
       client: {
-          host: '127.0.0.1',
+          host: '$HOST',
           port: '3306',
           user: 'root',
           password: '1234',
@@ -42,23 +42,11 @@ module.exports = (appInfo) => {
       app: true,
       agent: false,
   };
-  config.mysql = {
-    client: {
-      host: "49.4.55.222",
-      port: "3306",
-      user: "bqm",
-      password: "_s7hP@HG7(ZL!PEXaw",
-      database: "bqm",
-      dialect: "mysql",
-    },
-    app: true,
-    agent: false,
-  };
 
   config.redis = {
     client: {
         port: 6379,
-        host: '127.0.0.1',
+        host: 'svc-redis',
         password: '',
         db: 0,
     },
