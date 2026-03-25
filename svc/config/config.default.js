@@ -32,7 +32,7 @@ module.exports = (appInfo) => {
 
   config.mysql = {
       client: {
-          host: '$HOST',
+          host: 'localhost',
           port: '3306',
           user: 'root',
           password: '1234',
@@ -46,8 +46,8 @@ module.exports = (appInfo) => {
   config.redis = {
     client: {
         port: 6379,
-        host: 'svc-redis',
-        password: '',
+        host: 'localhost',
+        password: 'n7d3t7x7',
         db: 0,
     },
   };
@@ -55,7 +55,7 @@ module.exports = (appInfo) => {
   config.logger = {
     //disableConsoleAfterReady: false,
     consoleLevel: "INFO",
-    dir: "/Users/syu/project/node/rest/svc/logs",
+    dir: path.join(appInfo.baseDir, "logs"),
   };
 
   config.security = {
@@ -80,6 +80,11 @@ module.exports = (appInfo) => {
       systemId: 2,
       url: 'http://127.0.0.1:7001',
       name: 'example'
+    },
+    {
+      systemId: 3,
+      url: 'http://127.0.0.1:7001',
+      name: 'AI'
     }
   ]
 

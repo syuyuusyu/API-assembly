@@ -2,6 +2,11 @@ const md5 = require('js-md5')
 module.exports = (options, app) => {
     return async function restful(ctx, next) {
         ctx.logger.info(ctx.request.url);
+        // 只对 /invoke/ 路由做实体查找拦截，其他路由直接放行
+        if (!ctx.request.url.startsWith('/invoke/')) {
+            await next();
+            return;
+        }
         const keyMap = await ctx.service.redis.get('invokeEntityKeyMap')
         ctx.keyMap = keyMap
         //const invokeEntitys = await ctx.service.redis.get('invokeEntitys');

@@ -19,4 +19,8 @@ module.exports = app => {
       router.post('/invoke/:invokeName', controller.restful.invoke);
       router.get('/invokeInfo/checkUnique/:invokeName', controller.restful.checkUnique);
       router.get('/invokeInfo/groupName', controller.restful.groupName);
+
+      router.post('/stream/:invokeName/:activeMethod', controller.restful.stream);
+      router.post('/stream/:invokeName/:activeMethod/v1/chat/completions', controller.restful.stream);
+
 };
