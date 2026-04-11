@@ -15,7 +15,7 @@ CREATE TABLE `invoke_info` (
   `groupName` varchar(50) DEFAULT NULL,
   enableLog varchar(2)  DEFAULT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT;
 
 DROP TABLE IF EXISTS `invoke_log`;
 CREATE TABLE `invoke_log` (
@@ -23,16 +23,18 @@ CREATE TABLE `invoke_log` (
   `name` varchar(100) DEFAULT '',
   `groupName` varchar(50) DEFAULT '',
   `key` varchar(100) DEFAULT '',
-  `request` text,
-  `response` text,
+  `request` MEDIUMTEXT,
+  `response` MEDIUMTEXT,
   `date` timestamp NULL DEFAULT NULL,
   `code` int DEFAULT NULL,
   `descrption` varchar(100) DEFAULT '',
   `url` varchar(200) DEFAULT '',
-  `head` varchar(2000) DEFAULT '',
+  `head` text DEFAULT '',
   `method` varchar(20) DEFAULT '',
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB  DEFAULT CHARSET=utf8 ROW_FORMAT=COMPACT;
+) ENGINE=InnoDB  DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci ROW_FORMAT=COMPACT;
 CREATE INDEX invoke_log_date_index ON invoke_log (`date`);
 CREATE INDEX invoke_log_key_index ON invoke_log (`key`);
 CREATE INDEX invoke_log_name_index ON invoke_log (`name`);
+
+ 

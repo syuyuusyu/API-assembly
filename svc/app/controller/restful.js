@@ -1,5 +1,4 @@
 const Controller = require('egg').Controller;
-const { PassThrough } = require('stream');
 
 
 
@@ -68,6 +67,7 @@ class RestfulController extends Controller {
     async save() {
         const entity = this.ctx.request.body;
         if (!entity.next) entity.next = null;
+        if (entity.enableLog === 'undefined') entity.enableLog = '0';
         let result = {};
         if (entity.id) {
             const [oldENity] = await this.app.mysql.query(`select * from invoke_info where id=?`, [entity.id]);
@@ -112,160 +112,7 @@ class RestfulController extends Controller {
     }
 
     async stream() {
-        const { invokeName, activeMethod } = this.ctx.params;
-        const queryMap = this.ctx.request.body;
-        console.log('activeMethod', activeMethod);
-
-        // 查找 invokeName 对应的 Callable API（含 parseFun，用于处理每个 SSE chunk）
-        const keyMap = await this.ctx.service.redis.get('invokeEntityKeyMap');
-        const callerEntity = await this.ctx.service.redis.hget('invokeEntitys', keyMap[invokeName]);
-        if (!callerEntity || !callerEntity.next) {
-            this.ctx.status = 404;
-            this.ctx.body = { error: `${invokeName} not found or has no relevant requests` };
-            return;
-        }
-
-        // 从 next 中找到 activeMethod 对应的 API Configuration（含上游 URL/head/body）
-        const nextEntityList = await this.ctx.service.redis.hmget('invokeEntitys', callerEntity.next.split(','));
-        const targetEntity = nextEntityList.filter(e => e).find(e => e.name === activeMethod);
-        if (!targetEntity) {
-            this.ctx.status = 404;
-            this.ctx.body = { error: `${activeMethod} not found in ${invokeName}` };
-            return;
-        }
-
-        // 解析 URL / head / body 模板中的 @xxx 占位符
-        const params = { ...queryMap };
-        if (targetEntity.systemId) {
-            const sysInfo = this.app.config.systemInfo.find(s => s.systemId == targetEntity.systemId);
-            if (sysInfo) params.baseUrl = sysInfo.url;
-        }
-        const url = this.service.restful.parseByqueryMap(targetEntity.url, params);
-        const method = targetEntity.method.toUpperCase();
-
-        let requestBody, requestHead;
-        try {
-            requestBody = JSON.parse(this.service.restful.parseByqueryMap(targetEntity.body, params));
-            requestHead = JSON.parse(this.service.restful.parseByqueryMap(targetEntity.head, params));
-            console.log(url);
-            console.log(requestHead);
-            console.log(requestBody);
-        } catch (e) {
-            this.ctx.status = 500;
-            this.ctx.body = { error: 'Failed to parse entity config', detail: e.message };
-            return;
-        }
-
-        // 向上游发起流式请求
-        let upstreamRes;
-        try {
-            const { res } = await this.app.curl(url, {
-                method,
-                data: JSON.stringify(requestBody),
-                headers: { 'Content-Type': 'application/json', ...requestHead },
-                streaming: true,
-                timeout: [30000, 600000],
-            });
-            upstreamRes = res;
-        } catch (e) {
-            this.ctx.logger.error('stream upstream error', e);
-            this.ctx.status = 502;
-            this.ctx.body = { error: 'Upstream request failed', detail: e.message };
-            return;
-        }
-
-        // 设置 SSE 响应头
-        this.ctx.set('Content-Type', 'text/event-stream');
-        this.ctx.set('Cache-Control', 'no-cache');
-        this.ctx.set('Connection', 'keep-alive');
-        this.ctx.set('X-Accel-Buffering', 'no');
-        this.ctx.status = 200;
-        const passThrough = new PassThrough();
-        this.ctx.body = passThrough;
-
-        // 无 parseFun 且不记日志：原样透传上游 SSE 流
-        if (!targetEntity.parseFun && targetEntity.enableLog !== '1') {
-            upstreamRes.pipe(passThrough);
-            upstreamRes.on('error', err => passThrough.destroy(err));
-            return;
-        }
-
-        // 有 parseFun 或需要记日志：逐行处理
-        let fn = null;
-        if (targetEntity.parseFun) {
-            try {
-                fn = evil(targetEntity.parseFun);
-            } catch (e) {
-                this.ctx.logger.error('parseFun compile error', e);
-                upstreamRes.pipe(passThrough);
-                return;
-            }
-        }
-
-        const logChunks = [];
-        let buffer = '';
-        upstreamRes.on('data', (chunk) => {
-            buffer += chunk.toString();
-            const lines = buffer.split('\n');
-            buffer = lines.pop(); // 末尾可能是不完整的行，留到下次处理
-
-            for (const line of lines) {
-                console.log(line);
-                if (!line.startsWith('data: ')) {
-                    if (line.trim()) passThrough.write(line + '\n');
-                    continue;
-                }
-                const dataStr = line.slice(6).trim();
-                if (dataStr === '[DONE]') {
-                    passThrough.write('data: [DONE]\n\n');
-                    continue;
-                }
-                try {
-                    const parsed = JSON.parse(dataStr);
-                    if (targetEntity.enableLog === '1') logChunks.push(parsed);
-                    if (fn) {
-                        const transformed = fn(parsed, {}, 200, requestHead, requestBody, url);
-                        if (transformed != null) {
-                            passThrough.write(`data: ${JSON.stringify(transformed)}\n\n`);
-                        }
-                    } else {
-                        passThrough.write(line + '\n');
-                    }
-                } catch (e) {
-                    this.ctx.logger.error('parseFun execution error', e);
-                    passThrough.write(line + '\n');
-                }
-            }
-        });
-
-        upstreamRes.on('end', () => {
-            if (buffer.trim().startsWith('data: [DONE]')) {
-                passThrough.write('data: [DONE]\n\n');
-            }
-            console.log(logChunks.length);
-            console.log(targetEntity.enableLog);
-            if (targetEntity.enableLog == '1') {
-                this.app.mysql.insert('invoke_log', {
-                    key: requestHead.logKey,
-                    name: targetEntity.name,
-                    groupName: targetEntity.groupName,
-                    code: 200,
-                    request: JSON.stringify(requestBody),
-                    response: JSON.stringify(logChunks),
-                    date: this.app.mysql.literals.now,
-                    descrption: targetEntity.descrption,
-                    url: url,
-                    method: method,
-                    head: JSON.stringify(requestHead),
-                });
-            }
-            passThrough.end();
-        });
-
-        upstreamRes.on('error', err => {
-            this.ctx.logger.error('upstream stream error', err);
-            passThrough.destroy(err);
-        });
+        await this.service.aiStream.stream();
     }
 
     async invoke() {

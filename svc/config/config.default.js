@@ -36,8 +36,9 @@ module.exports = (appInfo) => {
           port: '3306',
           user: 'root',
           password: '1234',
-          database: 'rest',
-          dialect: 'mysql'
+          database: 'ai',
+          dialect: 'mysql',
+          charset: 'utf8mb4',
       },
       app: true,
       agent: false,
@@ -53,7 +54,7 @@ module.exports = (appInfo) => {
   };
 
   config.logger = {
-    //disableConsoleAfterReady: false,
+    disableConsoleAfterReady: false,
     consoleLevel: "INFO",
     dir: path.join(appInfo.baseDir, "logs"),
   };
@@ -71,18 +72,18 @@ module.exports = (appInfo) => {
   };
 
   config.systemInfo = [
+    // {
+    //     systemId: 1,
+    //     url: 'http://127.0.0.1:7001',
+    //     name: 'mock'
+    // },
+    // {
+    //   systemId: 2,
+    //   url: 'http://127.0.0.1:7001',
+    //   name: 'example'
+    // },
     {
-        systemId: 1,
-        url: 'http://127.0.0.1:7001',
-        name: 'mock'
-    },
-    {
-      systemId: 2,
-      url: 'http://127.0.0.1:7001',
-      name: 'example'
-    },
-    {
-      systemId: 3,
+      systemId: 1,
       url: 'http://127.0.0.1:7001',
       name: 'AI'
     }

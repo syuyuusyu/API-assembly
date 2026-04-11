@@ -22,5 +22,6 @@ module.exports = app => {
 
       router.post('/stream/:invokeName/:activeMethod', controller.restful.stream);
       router.post('/stream/:invokeName/:activeMethod/v1/chat/completions', controller.restful.stream);
+      router.post('/stream/:invokeName/:activeMethod/v1/messages', controller.restful.stream);
 
 };
