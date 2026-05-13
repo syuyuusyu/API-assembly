@@ -2,7 +2,9 @@ import React from 'react';
 import stringify from 'json-stringify-pretty-compact';
 import { RobotOutlined, ToolOutlined, UserOutlined } from '@ant-design/icons';
 import { Avatar, Collapse, Descriptions, Empty, Space, Tag, Typography } from 'antd';
-import { Bubble, ThoughtChain, XProvider } from '@ant-design/x';
+import { Bubble, CodeHighlighter, ThoughtChain, XProvider } from '@ant-design/x';
+import XMarkdown from '@ant-design/x-markdown';
+import Latex from '@ant-design/x-markdown/plugins/Latex';
 import CodeMirror from '@uiw/react-codemirror';
 import { json as codeJson } from '@codemirror/lang-json';
 
@@ -34,6 +36,13 @@ const JsonBlock = ({ value, height = 180 }) => (
     style={{ width: '100%', overflowWrap: 'break-word' }}
   />
 );
+
+const Code = props => {
+  const { className, children } = props;
+  const lang = className?.match(/language-(\w+)/)?.[1] || '';
+  if (typeof children !== 'string') return null;
+  return <CodeHighlighter lang={lang}>{children}</CodeHighlighter>;
+};
 
 const shortText = (value, len = 360) => {
   const text = typeof value === 'string' ? value : JSON.stringify(value || '');
@@ -92,6 +101,29 @@ const contentText = content => {
     }).filter(Boolean).join('\n');
   }
   return JSON.stringify(content);
+};
+
+const isJsonText = text => {
+  if (typeof text !== 'string') return false;
+  try {
+    JSON.parse(text);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
+const isMarkdownText = text => {
+  if (typeof text !== 'string') return false;
+  return /```|^\s*[-*]\s|^\s*\d+\.\s|^\s*#{1,6}\s|^\s*>|^\s*\||\[[^\]]+\]\([^)]+\)|\*\*[^*]+\*\*|`[^`]+`/m.test(text);
+};
+
+const markdownText = text => {
+  if (isJsonText(text)) {
+    return `\`\`\`json\n${JSON.stringify(JSON.parse(text), null, 2)}\n\`\`\``;
+  }
+  if (isMarkdownText(text)) return text;
+  return `\`\`\`text\n${text}\n\`\`\``;
 };
 
 const getRequest = record => parseJson(record.request);
@@ -180,7 +212,13 @@ const bubbleMeta = role => {
 
 const TextContent = ({ children }) => {
   if (!children) return <Text type="secondary">no text content</Text>;
-  return <Paragraph style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', marginBottom: 0 }}>{children}</Paragraph>;
+  return (
+    <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto', wordBreak: 'break-word' }}>
+      <XMarkdown config={{ extensions: Latex() }} components={{ code: Code }} paragraphTag="div">
+        {markdownText(String(children))}
+      </XMarkdown>
+    </div>
+  );
 };
 
 const FoldedPromptBlocks = ({ blocks }) => {
