@@ -98,6 +98,27 @@ class RestfulController extends Controller {
         this.ctx.body = await this.app.mysql.select('invoke_info', {});
     }
 
+    async refreshCache() {
+        const invokeEntitys = await this.app.mysql.query(`select * from invoke_info`);
+        const invokeEntityKeyMap = {};
+
+        await this.app.redis.del('invokeEntityKeyMap');
+        await this.app.redis.del('invokeEntitys');
+
+        for (let i = 0; i < invokeEntitys.length; i++) {
+            const e = invokeEntitys[i];
+            invokeEntityKeyMap[e.name] = e.id;
+            await this.ctx.service.redis.hset('invokeEntitys', e.id, e);
+        }
+        await this.ctx.service.redis.set('invokeEntityKeyMap', invokeEntityKeyMap);
+
+        this.ctx.body = {
+            success: true,
+            total: invokeEntitys.length,
+            names: Object.keys(invokeEntityKeyMap)
+        };
+    }
+
     // async test() {
     //     const entity = this.ctx.request.body;
     //     if (!/\d+/.test(entity.systemId)) {

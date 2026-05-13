@@ -26,7 +26,7 @@
     "node": ">=16.0.0"
   },
   "scripts": {
-    "start": "egg-scripts start --title=api_assembly --workers=4",
+    "start": "egg-scripts start --title=api_assembly --workers=2",
     "stop": "egg-scripts stop --title=api_assembly",
     "dev": "egg-bin dev --env=default",
     "debug": "egg-bin debug",

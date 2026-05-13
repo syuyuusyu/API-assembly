@@ -7,6 +7,7 @@ class AiStreamService extends Service {
 		const { invokeName, activeMethod } = this.ctx.params;
 		const queryMap = this.ctx.request.body;
 		console.log('activeMethod', activeMethod);
+	
 
 		// 查找 invokeName 对应的 Callable API（含 parseFun，用于处理每个 SSE chunk）
 		const keyMap = await this.ctx.service.redis.get('invokeEntityKeyMap');
@@ -46,13 +47,15 @@ class AiStreamService extends Service {
             }
 			requestHead = JSON.parse(this.service.restful.parseByqueryMap(targetEntity.head, params));
 			// console.log(url);
-			// console.log(requestHead);
+			//console.log(requestHead);
 			//this.ctx.logger.info(requestBody);
 		} catch (e) {
 			this.ctx.status = 500;
 			this.ctx.body = { error: 'Failed to parse entity config', detail: e.message };
 			return;
 		}
+		const shouldLogRawChunks = requestHead.rawLog
+		console.log('shouldLogRawChunks', shouldLogRawChunks);
 
 		// 协议归一化：清理 MiniMax 不支持的 Anthropic 专有字段
 		// system 数组 -> 字符串
@@ -70,7 +73,7 @@ class AiStreamService extends Service {
 		requestBody.stream = true;
 
 		// 向上游发起流式请求
-		this.ctx.logger.info('[aiStream] requestBody: %j', requestBody);
+		this.ctx.logger.info(formatAgentRequestLog(invokeName, activeMethod, requestBody));
 		let upstreamRes, upstreamStatus;
 		try {
 			const { res, status } = await this.app.curl(url, {
@@ -120,9 +123,12 @@ class AiStreamService extends Service {
 
 		const logChunks = [];
 		let buffer = '';
+		const parseFnObj = {
+			isThink: false,
+		}
 		upstreamRes.on('data', (chunk) => {
 			const raw = chunk.toString();
-			this.ctx.logger.info('[aiStream] raw chunk: %s', raw.slice(0, 500));
+			//this.ctx.logger.info('[aiStream] raw chunk: %s', raw.slice(0, 500));
 			buffer += raw;
 			const lines = buffer.split('\n');
 			buffer = lines.pop(); // 末尾可能是不完整的行，留到下次处理
@@ -140,11 +146,18 @@ class AiStreamService extends Service {
 				}
 				try {
 					const parsed = JSON.parse(dataStr);
-					if (targetEntity.enableLog === '1') logChunks.push(parsed);
+					logChunks.push(parsed);
 					if (fn) {
-						const transformed = fn(parsed, {}, 200, requestHead, requestBody, url);
+						const transformed = fn.call(parseFnObj, parsed, {}, 200, requestHead, requestBody, url);
 						if (transformed != null) {
-							passThrough.write(`data: ${JSON.stringify(transformed)}\n\n`);
+							if (Array.isArray(transformed)) {
+								for (const item of transformed) {
+									const prefix = (item && item.type) ? `event: ${item.type}\n` : '';
+									passThrough.write(`${prefix}data: ${JSON.stringify(item)}\n\n`);
+								}
+							} else {
+								passThrough.write(`data: ${JSON.stringify(transformed)}\n\n`);
+							}
 						}
 					} else {
 						passThrough.write(line + '\n');
@@ -166,10 +179,19 @@ class AiStreamService extends Service {
 				} else if (tail.startsWith('data: ')) {
 					try {
 						const parsed = JSON.parse(tail.slice(6));
-						if (targetEntity.enableLog === '1') logChunks.push(parsed);
+						logChunks.push(parsed);
 						if (fn) {
-							const transformed = fn(parsed, {}, 200, requestHead, requestBody, url);
-							if (transformed != null) passThrough.write(`data: ${JSON.stringify(transformed)}\n\n`);
+							const transformed = fn.call(parseFnObj, parsed, {}, 200, requestHead, requestBody, url);
+						if (transformed != null) {
+							if (Array.isArray(transformed)) {
+								for (const item of transformed) {
+									const prefix = (item && item.type) ? `event: ${item.type}\n` : '';
+									passThrough.write(`${prefix}data: ${JSON.stringify(item)}\n\n`);
+								}
+							} else {
+								passThrough.write(`data: ${JSON.stringify(transformed)}\n\n`);
+							}
+						}
 						} else {
 							passThrough.write(tail + '\n\n');
 						}
@@ -180,32 +202,31 @@ class AiStreamService extends Service {
 					passThrough.write(tail + '\n');
 				}
 			}
-			console.log(logChunks.length);
-			console.log(targetEntity.enableLog);
-			if (targetEntity.enableLog == '1') {
-                let mergedResponse = {};
-                try {
-                    mergedResponse = parseStreamLogChunks(invokeName, logChunks);
-                }catch (e) {
-                    this.ctx.logger.error('parseStreamLogChunks error', e);
-                    mergedResponse = { error: 'Failed to parse log chunks', detail: e.message };
-                    this.ctx.logger.error('parseStreamLogChunks error', e);
-                    this.ctx.logger.error(logChunks);
-                }
-				
-				this.app.mysql.insert('invoke_log', {
-					key: requestHead.logKey,
-					name: targetEntity.name,
-					groupName: targetEntity.groupName,
-					code: 200,
-					request: JSON.stringify(requestBody),
-					response: JSON.stringify(mergedResponse),
-					date: this.app.mysql.literals.now,
-					descrption: targetEntity.descrption,
-					url: url,
-					method: method,
-					head: JSON.stringify(requestHead),
-				}).catch(e => this.ctx.logger.error('[aiStream] invoke_log insert error', e));
+			if (logChunks.length > 0) {
+				let mergedResponse = {};
+				try {
+					mergedResponse = parseStreamLogChunks(invokeName, logChunks);
+				} catch (e) {
+					this.ctx.logger.error('parseStreamLogChunks error', e);
+					mergedResponse = { error: 'Failed to parse log chunks', detail: e.message };
+				}
+				this.ctx.logger.info(formatAgentResponseLog(invokeName, mergedResponse));
+				if (targetEntity.enableLog == '1') {
+					const responseForLog = shouldLogRawChunks ? logChunks : mergedResponse;
+					this.app.mysql.insert('invoke_log', {
+						key: requestHead.logKey,
+						name: targetEntity.name,
+						groupName: targetEntity.groupName,
+						code: 200,
+						request: JSON.stringify(requestBody),
+						response: JSON.stringify(responseForLog),
+						date: this.app.mysql.literals.now,
+						descrption: targetEntity.descrption,
+						url: url,
+						method: method,
+						head: JSON.stringify(requestHead),
+					}).catch(e => this.ctx.logger.error('[aiStream] invoke_log insert error', e));
+				}
 			}
 			passThrough.end();
 		});
@@ -424,6 +445,102 @@ function parseOpenAIChunks(chunks) {
 		});
 
 	return base;
+}
+
+/**
+ * 请求侧摘要日志：用户输入 + 本轮携带的 tool 结果
+ */
+function formatAgentRequestLog(invokeName, activeMethod, requestBody) {
+	const T = (v, len = 200) => {
+		const s = typeof v === 'string' ? v : (JSON.stringify(v) || '');
+		return s.length > len ? s.slice(0, len) + '…' : s;
+	};
+	const msgs = Array.isArray(requestBody.messages) ? requestBody.messages : [];
+	const lines = [
+		`[AGENT REQ] ${invokeName}/${activeMethod}  model=${requestBody.model || '?'}  history=${msgs.length} msgs`,
+	];
+
+	// 最后一条用户消息
+	const lastUser = [...msgs].reverse().find(m => m.role === 'user');
+	if (lastUser) {
+		let text = '';
+		if (typeof lastUser.content === 'string') {
+			text = lastUser.content;
+		} else if (Array.isArray(lastUser.content)) {
+			text = lastUser.content
+				.filter(b => b.type === 'text')
+				.map(b => b.text || '')
+				.join('');
+		}
+		if (text) lines.push(`  USER    : ${T(text)}`);
+	}
+
+	// 本轮携带的 tool 结果（OpenAI role:tool / Anthropic tool_result block）
+	const toolResults = [];
+	for (const msg of msgs) {
+		if (msg.role === 'tool') {
+			toolResults.push(`[${msg.tool_call_id || '?'}] ${T(msg.content || '', 100)}`);
+		} else if (msg.role === 'user' && Array.isArray(msg.content)) {
+			for (const b of msg.content) {
+				if (b.type === 'tool_result') {
+					const txt = Array.isArray(b.content)
+						? b.content.filter(x => x.type === 'text').map(x => x.text).join('')
+						: String(b.content || '');
+					toolResults.push(`[${b.tool_use_id || '?'}] ${T(txt, 100)}`);
+				}
+			}
+		}
+	}
+	if (toolResults.length > 0) {
+		lines.push(`  PREV_TOOL_RESULTS (${toolResults.length}): ${toolResults.slice(-2).join(' | ')}`);
+	}
+
+	return lines.join('\n');
+}
+
+/**
+ * 响应侧摘要日志：模型输出文本 / tool_calls / stop 原因 / token 用量
+ */
+function formatAgentResponseLog(invokeName, mergedResponse) {
+	const T = (v, len = 200) => {
+		const s = typeof v === 'string' ? v : (JSON.stringify(v) || '');
+		return s.length > len ? s.slice(0, len) + '…' : s;
+	};
+	const isAnthropic = Array.isArray(mergedResponse.content);
+	const lines = [`[AGENT RES] ${invokeName}  model=${mergedResponse.model || '?'}`];
+
+	if (isAnthropic) {
+		const content = mergedResponse.content || [];
+		const textParts = content.filter(b => b.type === 'text').map(b => b.text || '').join('');
+		const thinkingLen = content
+			.filter(b => b.type === 'thinking')
+			.reduce((n, b) => n + (b.thinking || '').length, 0);
+		const toolCalls = content.filter(b => b.type === 'tool_use');
+		const usage = mergedResponse.usage || {};
+
+		if (thinkingLen > 0) lines.push(`  THINKING : [${thinkingLen} chars]`);
+		if (textParts) lines.push(`  TEXT     : ${T(textParts)}`);
+		if (toolCalls.length > 0) {
+			lines.push(`  TOOL_CALLS(${toolCalls.length}): ${
+				toolCalls.map(t => `${t.name}(${T(JSON.stringify(t.input), 100)})`).join(', ')
+			}`);
+		}
+		lines.push(`  STOP=${mergedResponse.stop_reason || '?'}  tokens in=${usage.input_tokens ?? '?'} out=${usage.output_tokens ?? '?'}`);
+	} else {
+		const choice = (mergedResponse.choices || [])[0] || {};
+		const msg = choice.message || {};
+		const usage = mergedResponse.usage || {};
+
+		if (msg.content) lines.push(`  TEXT     : ${T(msg.content)}`);
+		if (Array.isArray(msg.tool_calls) && msg.tool_calls.length > 0) {
+			lines.push(`  TOOL_CALLS(${msg.tool_calls.length}): ${
+				msg.tool_calls.map(t => `${t.function.name}(${T(t.function.arguments, 100)})`).join(', ')
+			}`);
+		}
+		lines.push(`  STOP=${choice.finish_reason || '?'}  tokens in=${usage.prompt_tokens ?? '?'} out=${usage.completion_tokens ?? '?'}`);
+	}
+
+	return lines.join('\n');
 }
 
 module.exports = AiStreamService;

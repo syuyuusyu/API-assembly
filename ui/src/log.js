@@ -4,13 +4,14 @@ import {useAsync,useToggle} from 'react-use';
 import lodash from 'lodash';
 import stringify from 'json-stringify-pretty-compact'
 
-import { SearchOutlined} from '@ant-design/icons';
-import {Table,Layout,Form,Select,Divider,Button,Modal,Descriptions,Tag,Input,Space} from 'antd'
+import { RobotOutlined, SearchOutlined} from '@ant-design/icons';
+import {Table,Layout,Form,Select,Divider,Button,Modal,Descriptions,Tag,Input,Space,Tooltip} from 'antd'
 import dayjs from 'dayjs';
 const utc = require('dayjs/plugin/utc');
 const timezone = require('dayjs/plugin/timezone');
 import { SeeIcon,RerunIcon } from './icon';
 import { ConfigTest } from './InvokeUi';
+import AiLogReview, { judgeAiLog } from './aiLogReview';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
@@ -49,6 +50,7 @@ const Log=( {baseUrl} ) =>{
   
     const [reload, _reload] = useToggle(false)
     const [detailVisible, _detailVisible] = useToggle(false);  
+    const [aiReviewVisible, _aiReviewVisible] = useToggle(false);  
   
     const [currentRecod,_currentRecod] = useState({})
   
@@ -87,6 +89,12 @@ const Log=( {baseUrl} ) =>{
       _detailVisible()
     }
 
+    const openAiReview = (record) =>{
+      const kknd = lodash.cloneDeep(record)
+      _currentRecod(kknd)
+      _aiReviewVisible()
+    }
+
     const columns = [
       {dataIndex: 'name', title: 'name', width: 80,},
       {dataIndex: 'key', title: 'logKey', width: 120,},
@@ -119,10 +127,21 @@ const Log=( {baseUrl} ) =>{
         dataIndex: 'id',
         width: 80,
         render: (text, record) => {
+            const aiLog = judgeAiLog(record)
             return (
-              <span>
-                <Button icon={<SeeIcon />} onClick={() => openDetial(record)} size="small"></Button>
-              </span>
+              <Space size={4}>
+                <Tooltip title="detail">
+                  <Button icon={<SeeIcon />} onClick={() => openDetial(record)} size="small"></Button>
+                </Tooltip>
+                <Tooltip title={aiLog.isAiLog ? `AI log review (${aiLog.type})` : 'Not an AI API log'}>
+                  <Button
+                    icon={<RobotOutlined />}
+                    onClick={() => openAiReview(record)}
+                    size="small"
+                    disabled={!aiLog.isAiLog}
+                  ></Button>
+                </Tooltip>
+              </Space>
             );
         }
       }
@@ -177,6 +196,15 @@ const Log=( {baseUrl} ) =>{
                 maskClosable={false}
                 destroyOnClose={true}>
                 <Detail record={currentRecod}/>
+            </Modal>
+            <Modal open={aiReviewVisible}
+                width={1300}
+                title={'AI log review'}
+                footer={null}
+                onCancel={_aiReviewVisible}
+                maskClosable={false}
+                destroyOnClose={true}>
+                <AiLogReview record={currentRecod}/>
             </Modal>
             <Table columns={columns}
                 rowKey={record => record.id}

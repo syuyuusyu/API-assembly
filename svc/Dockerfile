@@ -1,5 +1,8 @@
 FROM node:18-alpine
 
+# 安装 curl
+RUN apk add --no-cache curl
+
 # 创建工作目录
 RUN mkdir -p /app
 WORKDIR /app
