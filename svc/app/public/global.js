@@ -1,1 +1,1 @@
-window.KKND={baseUrl:""};
+window.KKND={baseUrl:"http://rest.k8s.orb.local"};

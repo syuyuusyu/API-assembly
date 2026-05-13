@@ -77,6 +77,9 @@ const splitTextBlocks = content => {
       foldedTextBlocks.push({ title: defaultPromptTitle(item.text), text: item.text, raw: item });
       return false;
     }
+    if (item?.type === 'tool_result') {
+      return false;
+    }
     return true;
   });
 
@@ -278,9 +281,23 @@ const anthropicToolResultItems = blocks => {
   return (blocks || []).filter(block => block?.type === 'tool_result').map((block, index) => ({
     key: block.tool_use_id || `anthropic-result-${index}`,
     title: `tool result: ${block.tool_use_id || 'unknown'}`,
-    description: <Text type="secondary">{shortText(contentText(block.content), 260)}</Text>,
+    description: (
+      <Space direction="vertical" style={{ width: '100%' }}>
+        <Text code>{block.tool_use_id || `index:${index}`}</Text>
+        <Text type="secondary">content folded by default</Text>
+      </Space>
+    ),
     status: block.is_error ? 'error' : 'success',
-    content: <CompactJson title="tool result detail" value={block} />,
+    content: (
+      <Collapse size="small">
+        <Panel header={`tool result content (${contentText(block.content).length} chars)`} key="content">
+          <TextContent>{contentText(block.content)}</TextContent>
+        </Panel>
+        <Panel header="tool result detail" key="detail">
+          <JsonBlock value={block} height={150} />
+        </Panel>
+      </Collapse>
+    ),
   }));
 };
 

@@ -1,4 +1,4 @@
 // @ts-nocheck
 window.KKND = {
-     baseUrl: '',
+     baseUrl: 'http://rest.k8s.orb.local',
 }
