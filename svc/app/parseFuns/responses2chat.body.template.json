@@ -1,0 +1,10 @@
+{
+  "model": "@model",
+  "messages": @messages,
+  "tools": @tools,
+  "tool_choice": @tool_choice,
+  "temperature": @temperature,
+  "top_p": @top_p,
+  "max_tokens": @max_output_tokens,
+  "stream": true
+}

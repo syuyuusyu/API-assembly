@@ -8,7 +8,7 @@ import Latex from '@ant-design/x-markdown/plugins/Latex';
 import CodeMirror from '@uiw/react-codemirror';
 import { json as codeJson } from '@codemirror/lang-json';
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 const { Panel } = Collapse;
 
 const userAvatar = { color: '#fff', backgroundColor: '#1677ff' };
@@ -136,10 +136,13 @@ export const judgeAiLog = record => {
   const url = String(record?.url || '').toLowerCase();
   const request = getRequest(record || {});
 
-  const isOpenAIUrl = /from_minimaxi_for_openai|openai|chat\/completions|\/v1\/responses/.test(url);
+  const isOpenAIUrl = /from_minimaxi_for_openai|chat\/completions|\/v1\/responses|\/responses$/.test(url);
   const isAnthropicUrl = /anthropic|\/v1\/messages|\/messages|from_minimaxi|from_nvidia/.test(url) && !isOpenAIUrl;
+  const hasResponsesInput = Array.isArray(request.input) && request.input.some(item =>
+    item?.type === 'message' || item?.type === 'function_call' || item?.type === 'function_call_output'
+  );
 
-  if (isOpenAIUrl) return { isAiLog: true, type: 'openai' };
+  if (isOpenAIUrl || hasResponsesInput) return { isAiLog: true, type: 'openai' };
   if (isAnthropicUrl) return { isAiLog: true, type: 'anthropic' };
 
   if (Array.isArray(request.messages)) {

@@ -40,10 +40,17 @@ class AiStreamService extends Service {
 		try {
             // console.log(targetEntity.body)
             // console.log(params)
-            if(targetEntity.body.trim()=='{}'){
+            const bodyConfig = targetEntity.body.trim();
+            if(bodyConfig=='{}'){
                 requestBody = params;
+            }else if(isFunctionString(bodyConfig)){
+                const bodyFn = evil(bodyConfig);
+                requestBody = await bodyFn.call(createBodyBuilderContext(), params);
+                if (typeof requestBody === 'string') {
+                    requestBody = JSON.parse(requestBody);
+                }
             }else{
-                requestBody = JSON.parse(this.service.restful.parseByqueryMap(targetEntity.body, params));
+                requestBody = JSON.parse(this.service.restful.parseByqueryMap(bodyConfig, params));
             }
 			requestHead = JSON.parse(this.service.restful.parseByqueryMap(targetEntity.head, params));
 			// console.log(url);
@@ -237,6 +244,30 @@ class AiStreamService extends Service {
 		});
 	}
 
+}
+
+function isFunctionString(value) {
+	if (typeof value !== 'string') return false;
+	const body = value.trim();
+	return body.startsWith('function') || body.startsWith('async function') || /^(async\s+)?(\([^)]*\)|[A-Za-z_$][\w$]*)\s*=>/.test(body);
+}
+
+function createBodyBuilderContext() {
+	return {
+		json(value, fallback = {}) {
+			if (value == null || value === '') return fallback;
+			if (typeof value === 'object') return value;
+			try {
+				return JSON.parse(value);
+			} catch (e) {
+				return fallback;
+			}
+		},
+		stringify(value) {
+			if (typeof value === 'string') return value;
+			return JSON.stringify(value);
+		},
+	};
 }
 
 function evil(fn) {

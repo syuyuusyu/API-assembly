@@ -7,26 +7,60 @@ import stringify from 'json-stringify-pretty-compact'
 import { RobotOutlined, SearchOutlined} from '@ant-design/icons';
 import {Table,Layout,Form,Select,Divider,Button,Modal,Descriptions,Tag,Input,Space,Tooltip} from 'antd'
 import dayjs from 'dayjs';
-const utc = require('dayjs/plugin/utc');
-const timezone = require('dayjs/plugin/timezone');
 import { SeeIcon,RerunIcon } from './icon';
 import { ConfigTest } from './InvokeUi';
 import AiLogReview, { judgeAiLog } from './aiLogReview';
+import CodeMirror from '@uiw/react-codemirror';
+import { json as codeJson } from '@codemirror/lang-json';
+import { post,get } from './util';
+
+const utc = require('dayjs/plugin/utc');
+const timezone = require('dayjs/plugin/timezone');
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
-import CodeMirror from '@uiw/react-codemirror';
-import { json as codeJson } from '@codemirror/lang-json';
 
 const { Header, Content } = Layout;
 
 const FormItem = Form.Item;
 const Option = Select.Option;
 
-import { post,get } from './util';
-
 const BaseUrlContext = createContext('');
+
+const parseLogJson = value => {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return value;
+  }
+};
+
+const logJsonText = value => {
+  const parsed = parseLogJson(value);
+  if (typeof parsed === 'string') return parsed;
+  return stringify(parsed, { indent: 2 });
+};
+
+const LogJsonBlock = ({ value }) => (
+  <div style={{ width: '100%', maxWidth: '100%', overflowX: 'auto' }}>
+    <CodeMirror
+      value={logJsonText(value)}
+      extensions={[codeJson()]}
+      style={{ minWidth: 0 }}
+    />
+  </div>
+);
+
+const DetailJsonSection = ({ label, value }) => (
+  <div style={{ marginTop: 12 }}>
+    <div style={{ marginBottom: 6 }}>
+      <Tag color="#108ee9">{label}</Tag>
+    </div>
+    <LogJsonBlock value={value} />
+  </div>
+);
 
 
 const Log=( {baseUrl} ) =>{
@@ -264,28 +298,10 @@ const Detail=( {record} ) =>{
         <Descriptions.Item label="http code" >{record.code}</Descriptions.Item>
         <Descriptions.Item label="method" >{record.method}</Descriptions.Item>
         <Descriptions.Item label="date" >{dayjs(record.date).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-        <Descriptions.Item label={ <Tag color="#108ee9">request head</Tag>} span={3}>
-          <CodeMirror
-            value={stringify( JSON.parse(record.head),{ indent: 2 })}
-            extensions={[codeJson()]}
-            style={{ width: '1050px', overflowWrap: 'break-word' }}
-          />
-        </Descriptions.Item>
-        <Descriptions.Item label={<Tag color="#108ee9">request body</Tag>} span={3}>
-          <CodeMirror
-            value={stringify( JSON.parse(record.request),{ indent: 2 })}
-            extensions={[codeJson()]}
-            style={{ width: '1050px', overflowWrap: 'break-word' }}
-          />
-        </Descriptions.Item>
-        <Descriptions.Item label={ <Tag color="#108ee9">response</Tag>} span={3}>
-          <CodeMirror
-            value={stringify( JSON.parse(record.response),{ indent: 2 })}
-            extensions={[codeJson()]}
-            style={{ width: '1050px', overflowWrap: 'break-word' }}
-          />
-        </Descriptions.Item>
       </Descriptions>
+      <DetailJsonSection label="request head" value={record.head} />
+      <DetailJsonSection label="request body" value={record.request} />
+      <DetailJsonSection label="response" value={record.response} />
     </>
   )
 }
