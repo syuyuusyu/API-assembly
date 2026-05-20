@@ -7,6 +7,8 @@
  * params is the original request body sent by the client.
  */
 function responses2chatBody(params) {
+  const TARGET_CHAT_MODEL = 'deepseek-v4-flash';
+
   function copy(source, target, keys) {
     keys.forEach(key => {
       if (source[key] != null) target[key] = source[key];
@@ -78,6 +80,67 @@ function responses2chatBody(params) {
     return null;
   }
 
+  function reasoningItemToText(item) {
+    if (!item || typeof item !== 'object' || item.type !== 'reasoning') return '';
+    if (typeof item.reasoning_content === 'string') return item.reasoning_content;
+    if (typeof item.text === 'string') return item.text;
+
+    const summary = Array.isArray(item.summary) ? item.summary : [];
+    const summaryText = summary.map(part => {
+      if (typeof part === 'string') return part;
+      if (!part || typeof part !== 'object') return '';
+      return part.text || part.summary_text || '';
+    }).filter(Boolean).join('');
+
+    if (summaryText) return summaryText;
+
+    const content = Array.isArray(item.content) ? item.content : [];
+    return content.map(part => {
+      if (typeof part === 'string') return part;
+      if (!part || typeof part !== 'object') return '';
+      return part.text || part.reasoning_content || '';
+    }).filter(Boolean).join('');
+  }
+
+  function appendReasoning(message, reasoning) {
+    if (!message || !reasoning) return;
+    message.reasoning_content = (message.reasoning_content || '') + reasoning;
+  }
+
+  function appendToolCalls(message, toolCalls) {
+    if (!message || !Array.isArray(toolCalls) || toolCalls.length === 0) return;
+    message.tool_calls = (message.tool_calls || []).concat(toolCalls);
+  }
+
+  function normalizeAssistantHistory(messages) {
+    const normalized = [];
+    messages.forEach(msg => {
+      const prev = normalized[normalized.length - 1];
+      if (
+        msg &&
+        msg.role === 'assistant' &&
+        Array.isArray(msg.tool_calls) &&
+        prev &&
+        prev.role === 'assistant' &&
+        !prev.tool_call_id
+      ) {
+        appendToolCalls(prev, msg.tool_calls);
+        appendReasoning(prev, msg.reasoning_content || '');
+        return;
+      }
+      normalized.push(msg);
+    });
+
+    normalized.forEach(msg => {
+      if (msg && msg.role === 'assistant' && Array.isArray(msg.tool_calls) &&
+          typeof msg.reasoning_content !== 'string') {
+        msg.reasoning_content = msg.content || '';
+      }
+    });
+
+    return normalized;
+  }
+
   function toolToChatTool(tool) {
     if (!tool || tool.type !== 'function') return null;
     const fn = tool.function && typeof tool.function === 'object' ? tool.function : tool;
@@ -89,6 +152,42 @@ function responses2chatBody(params) {
         parameters: fn.parameters || {},
       },
     };
+  }
+
+  function namespaceToolToChatTools(tool) {
+    if (!tool || tool.type !== 'namespace' || !Array.isArray(tool.tools)) return [];
+    const namespace = tool.name || '';
+    const toolNamePrefix = namespace.endsWith('__') ? namespace : `${namespace}__`;
+    return tool.tools.map(child => {
+      if (!child || child.type !== 'function') return null;
+      const fn = child.function && typeof child.function === 'object' ? child.function : child;
+      return {
+        type: 'function',
+        function: {
+          name: `${toolNamePrefix}${fn.name}`,
+          description: [
+            `IMPORTANT: When calling this tool, the function name MUST be exactly "${toolNamePrefix}${fn.name}".`,
+            `Do not omit the namespace or call it as "${fn.name}".`,
+            tool.description,
+            fn.description,
+          ].filter(Boolean).join('\n'),
+          parameters: fn.parameters || {},
+        },
+      };
+    }).filter(Boolean);
+  }
+
+  function toolsToChatTools(tools) {
+    const chatTools = [];
+    tools.forEach(tool => {
+      const chatTool = toolToChatTool(tool);
+      if (chatTool) {
+        chatTools.push(chatTool);
+        return;
+      }
+      chatTools.push.apply(chatTools, namespaceToolToChatTools(tool));
+    });
+    return chatTools;
   }
 
   function toolChoiceToChat(choice) {
@@ -105,7 +204,7 @@ function responses2chatBody(params) {
 
   const body = params || {};
   const chatBody = {
-    model: body.model,
+    model: TARGET_CHAT_MODEL || body.model,
     messages: [],
     stream: true,
   };
@@ -133,9 +232,32 @@ function responses2chatBody(params) {
   if (typeof body.input === 'string') {
     chatBody.messages.push({ role: 'user', content: body.input });
   } else if (Array.isArray(body.input)) {
+    let pendingReasoning = '';
+    let lastAssistantMessage = null;
     body.input.forEach(item => {
+      const reasoning = reasoningItemToText(item);
+      if (reasoning) {
+        if (lastAssistantMessage) {
+          appendReasoning(lastAssistantMessage, reasoning);
+        } else {
+          pendingReasoning += reasoning;
+        }
+        return;
+      }
+
       const msg = inputItemToMessage(item);
-      if (msg) chatBody.messages.push(msg);
+      if (!msg) return;
+
+      if (msg.role === 'assistant') {
+        appendReasoning(msg, pendingReasoning);
+        pendingReasoning = '';
+        lastAssistantMessage = msg;
+      } else if (msg.role !== 'tool') {
+        lastAssistantMessage = null;
+        pendingReasoning = '';
+      }
+
+      chatBody.messages.push(msg);
     });
   } else if (Array.isArray(body.messages)) {
     chatBody.messages = body.messages;
@@ -144,9 +266,10 @@ function responses2chatBody(params) {
   if (chatBody.messages.length === 0) {
     chatBody.messages.push({ role: 'user', content: '' });
   }
+  chatBody.messages = normalizeAssistantHistory(chatBody.messages);
 
   if (Array.isArray(body.tools)) {
-    chatBody.tools = body.tools.map(toolToChatTool).filter(Boolean);
+    chatBody.tools = toolsToChatTools(body.tools);
   }
   if (body.tool_choice != null) {
     chatBody.tool_choice = toolChoiceToChat(body.tool_choice);

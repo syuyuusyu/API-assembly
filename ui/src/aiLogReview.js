@@ -51,7 +51,7 @@ const shortText = (value, len = 360) => {
 
 const isDefaultPromptText = text => {
   if (typeof text !== 'string') return false;
-  return /<system-reminder>|# claudeMd|CLAUDE\.md|You are Claude Code|SUGGESTION MODE|user-invocable skills/.test(text);
+  return /<system-reminder>|# claudeMd|CLAUDE\.md|You are Claude Code|SUGGESTION MODE|user-invocable skills|You are a coding agent running in the Codex CLI|<permissions instructions>|<skills_instructions>|<plugins_instructions>|sandbox_mode.*(?:workspace-write|workspace-ro|read-eval)|AGENTS\.md spec|How you work.*Personality|Responsiveness|Preamble messages/.test(text);
 };
 
 const defaultPromptTitle = text => {
@@ -60,6 +60,15 @@ const defaultPromptTitle = text => {
   if (/You are Claude Code/.test(text)) return 'Claude Code system prompt';
   if (/SUGGESTION MODE/.test(text)) return 'Claude Code suggestion prompt';
   if (/<system-reminder>/.test(text)) return 'system reminder';
+  if (/You are a coding agent running in the Codex CLI/.test(text) && /How you work/.test(text)) return 'Codex system prompt';
+  if (/<permissions instructions>/.test(text) && /sandbox_mode/.test(text)) return 'Codex permissions & sandbox';
+  if (/<skills_instructions>/.test(text) && /Available skills/.test(text)) return 'Codex skills instructions';
+  if (/<plugins_instructions>/.test(text) && /Available plugins/.test(text)) return 'Codex plugins instructions';
+  if (/<permissions instructions>/.test(text)) return 'permissions instructions';
+  if (/<skills_instructions>/.test(text)) return 'skills instructions';
+  if (/<plugins_instructions>/.test(text)) return 'plugins instructions';
+  if (/AGENTS\.md spec/.test(text)) return 'AGENTS.md spec';
+  if (/How you work.*Personality/.test(text)) return 'personality & behavior';
   return 'default prompt';
 };
 
@@ -385,6 +394,26 @@ const aggregateAnthropicResponse = response => {
 const openAIMessageBubble = (msg, index) => {
   const toolItems = openAIToolItems(msg.tool_calls);
   const isTool = msg.role === 'tool';
+
+  // System 消息：检测是否为 agent 内置 prompt，折叠显示
+  if (msg.role === 'system' || msg.role === 'developer') {
+    const text = typeof msg.content === 'string' ? msg.content : contentText(msg.content);
+    const isDefault = isDefaultPromptText(text);
+    return makeBubble({
+      key: `request-${index}`,
+      role: 'system',
+      header: (
+        <Space>
+          <Tag>{msg.role === 'developer' ? 'developer' : 'system'}</Tag>
+          {isDefault ? <Tag color="default">agent prompt folded</Tag> : null}
+        </Space>
+      ),
+      content: isDefault
+        ? <FoldedPromptBlocks blocks={[{ title: defaultPromptTitle(text), text }]} />
+        : <TextContent>{text}</TextContent>,
+    });
+  }
+
   return makeBubble({
     key: `request-${index}`,
     role: isTool ? 'tool' : msg.role,
@@ -498,14 +527,62 @@ export const OpenAILogReview = ({ record }) => {
   const request = getRequest(record);
   const rawResponse = getResponse(record);
   const response = aggregateOpenAIResponse(rawResponse);
-  const items = [
-    ...(request.messages || []).map(openAIMessageBubble),
-    openAIResponseBubble(response),
-  ];
+
+  // 将连续的系统 prompt 分组为一个折叠块
+  const messages = request.messages || [];
+  const items = [];
+  let systemAccum = null;
+
+  for (let i = 0; i < messages.length; i++) {
+    const msg = messages[i];
+    if (msg.role === 'system' || msg.role === 'developer') {
+      const text = typeof msg.content === 'string' ? msg.content : contentText(msg.content);
+      if (isDefaultPromptText(text)) {
+        if (!systemAccum) {
+          systemAccum = { blocks: [], startIndex: i };
+        }
+        systemAccum.blocks.push({ title: defaultPromptTitle(text), text });
+        continue;
+      }
+    }
+    // 遇到非系统 prompt 消息，先 flush 累积的 system blocks
+    if (systemAccum) {
+      items.push(makeBubble({
+        key: `request-system-${systemAccum.startIndex}`,
+        role: 'system',
+        header: (
+          <Space>
+            <Tag>system</Tag>
+            <Tag color="default">agent prompt folded</Tag>
+          </Space>
+        ),
+        content: <FoldedPromptBlocks blocks={systemAccum.blocks} />,
+      }));
+      systemAccum = null;
+    }
+    items.push(openAIMessageBubble(msg, i));
+  }
+
+  // flush 末尾的 system 分组
+  if (systemAccum) {
+    items.push(makeBubble({
+      key: `request-system-${systemAccum.startIndex}`,
+      role: 'system',
+      header: (
+        <Space>
+          <Tag>system</Tag>
+          <Tag color="default">agent prompt folded</Tag>
+        </Space>
+      ),
+      content: <FoldedPromptBlocks blocks={systemAccum.blocks} />,
+    }));
+  }
+
+  items.push(openAIResponseBubble(response));
 
   return (
     <ReviewShell record={record} type="openai" request={request} response={rawResponse}>
-      <Bubble.List items={items} roles={{ user: { placement: 'end' }, assistant: { placement: 'start' }, tool: { placement: 'start' } }} />
+      <Bubble.List items={items} roles={{ user: { placement: 'end' }, assistant: { placement: 'start' }, tool: { placement: 'start' }, system: { placement: 'start' } }} />
     </ReviewShell>
   );
 };

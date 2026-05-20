@@ -14,12 +14,146 @@
  * @param {object} body Unused request body.
  * @param {string} url Unused upstream URL.
  */
-function openai2responses(chunk, res, status, head, body, url) {
-  void res;
-  void status;
-  void head;
-  void body;
-  void url;
+function openai2responses(chunk) {
+  function responseEnvelope(self, status, output) {
+    return {
+      id: self._responseId || ('resp_' + Date.now()),
+      object: 'response',
+      created_at: self._created || Math.floor(Date.now() / 1000),
+      status,
+      model: self._model || '',
+      output: output || [],
+      parallel_tool_calls: true,
+      usage: convertUsage(self._usage),
+    };
+  }
+
+  function convertUsage(usage) {
+    if (!usage) return null;
+    return {
+      input_tokens: usage.prompt_tokens || 0,
+      output_tokens: usage.completion_tokens || 0,
+      total_tokens: usage.total_tokens || 0,
+    };
+  }
+
+  function ensureTextItem(self, events) {
+    if (self._textItem) return;
+    self._textItem = {
+      id: 'msg_' + self._nextOutputIndex,
+      outputIndex: self._nextOutputIndex++,
+      text: '',
+      done: false,
+    };
+    self._outputItems.push(self._textItem);
+    events.push({
+      type: 'response.output_item.added',
+      output_index: self._textItem.outputIndex,
+      item: messageOutputItem(self._textItem, 'in_progress'),
+    });
+    events.push({
+      type: 'response.content_part.added',
+      item_id: self._textItem.id,
+      output_index: self._textItem.outputIndex,
+      content_index: 0,
+      part: { type: 'output_text', text: '', annotations: [] },
+    });
+  }
+
+  function closeOpenItems(self, events) {
+    if (self._textItem && !self._textItem.done) {
+      self._textItem.done = true;
+      events.push({
+        type: 'response.output_text.done',
+        item_id: self._textItem.id,
+        output_index: self._textItem.outputIndex,
+        content_index: 0,
+        text: self._textItem.text,
+      });
+      events.push({
+        type: 'response.content_part.done',
+        item_id: self._textItem.id,
+        output_index: self._textItem.outputIndex,
+        content_index: 0,
+        part: { type: 'output_text', text: self._textItem.text, annotations: [] },
+      });
+      events.push({
+        type: 'response.output_item.done',
+        output_index: self._textItem.outputIndex,
+        item: messageOutputItem(self._textItem, 'completed'),
+      });
+    }
+
+    const keys = Object.keys(self._toolItems).sort(function(a, b) {
+      return self._toolItems[a].outputIndex - self._toolItems[b].outputIndex;
+    });
+    for (let i = 0; i < keys.length; i++) {
+      const item = self._toolItems[keys[i]];
+      if (item.done) continue;
+      item.done = true;
+      events.push({
+        type: 'response.function_call_arguments.done',
+        item_id: item.id,
+        output_index: item.outputIndex,
+        arguments: item.arguments,
+      });
+      events.push({
+        type: 'response.output_item.done',
+        output_index: item.outputIndex,
+        item: toolOutputItem(item, 'completed'),
+      });
+    }
+  }
+
+  function completedOutput(self) {
+    return self._outputItems
+      .slice()
+      .sort(function(a, b) { return a.outputIndex - b.outputIndex; })
+      .map(function(item) {
+        if (Object.prototype.hasOwnProperty.call(item, 'text')) {
+          return messageOutputItem(item, 'completed');
+        }
+        return toolOutputItem(item, 'completed');
+      });
+  }
+
+  function messageOutputItem(item, status) {
+    return {
+      id: item.id,
+      type: 'message',
+      status,
+      role: 'assistant',
+      content: [
+        { type: 'output_text', text: item.text || '', annotations: [] },
+      ],
+    };
+  }
+
+  function toolOutputItem(item, status) {
+    const outputItem = {
+      id: item.id,
+      type: 'function_call',
+      status,
+      call_id: item.callId,
+      name: item.name || '',
+      arguments: item.arguments || '',
+    };
+    if (item.namespace) {
+      outputItem.namespace = item.namespace;
+      outputItem.name = item.name || '';
+    }
+    return outputItem;
+  }
+
+  function splitNamespacedToolName(name) {
+    if (typeof name !== 'string') return null;
+    const match = name.match(/^(mcp__.+?__)(.+)$/);
+    if (!match) return null;
+    return {
+      namespace: match[1],
+      name: match[2],
+    };
+  }
 
   const self = this;
   const events = [];
@@ -76,12 +210,15 @@ function openai2responses(chunk, res, status, head, body, url) {
         const tc = delta.tool_calls[ti] || {};
         const tcIndex = typeof tc.index === 'number' ? tc.index : ti;
         let toolItem = self._toolItems[tcIndex];
+        const fnName = tc.function && tc.function.name || '';
+        const namespacedName = splitNamespacedToolName(fnName);
 
         if (!toolItem) {
           toolItem = {
             id: tc.id || ('call_' + self._nextOutputIndex),
             callId: tc.id || ('call_' + self._nextOutputIndex),
-            name: tc.function && tc.function.name || '',
+            name: namespacedName ? namespacedName.name : fnName,
+            namespace: namespacedName ? namespacedName.namespace : '',
             arguments: '',
             outputIndex: self._nextOutputIndex++,
             done: false,
@@ -100,7 +237,9 @@ function openai2responses(chunk, res, status, head, body, url) {
           toolItem.callId = tc.id;
         }
         if (tc.function && tc.function.name) {
-          toolItem.name = tc.function.name;
+          const splitName = splitNamespacedToolName(tc.function.name);
+          toolItem.name = splitName ? splitName.name : tc.function.name;
+          toolItem.namespace = splitName ? splitName.namespace : '';
         }
         if (tc.function && typeof tc.function.arguments === 'string' &&
 					tc.function.arguments.length > 0) {
@@ -123,134 +262,10 @@ function openai2responses(chunk, res, status, head, body, url) {
       });
     }
   }
-
   return events.length > 0 ? events : null;
 }
 
-function responseEnvelope(self, status, output) {
-  return {
-    id: self._responseId || ('resp_' + Date.now()),
-    object: 'response',
-    created_at: self._created || Math.floor(Date.now() / 1000),
-    status,
-    model: self._model || '',
-    output: output || [],
-    parallel_tool_calls: true,
-    usage: convertUsage(self._usage),
-  };
-}
 
-function convertUsage(usage) {
-  if (!usage) return null;
-  return {
-    input_tokens: usage.prompt_tokens || 0,
-    output_tokens: usage.completion_tokens || 0,
-    total_tokens: usage.total_tokens || 0,
-  };
-}
-
-function ensureTextItem(self, events) {
-  if (self._textItem) return;
-  self._textItem = {
-    id: 'msg_' + self._nextOutputIndex,
-    outputIndex: self._nextOutputIndex++,
-    text: '',
-    done: false,
-  };
-  self._outputItems.push(self._textItem);
-  events.push({
-    type: 'response.output_item.added',
-    output_index: self._textItem.outputIndex,
-    item: messageOutputItem(self._textItem, 'in_progress'),
-  });
-  events.push({
-    type: 'response.content_part.added',
-    item_id: self._textItem.id,
-    output_index: self._textItem.outputIndex,
-    content_index: 0,
-    part: { type: 'output_text', text: '', annotations: [] },
-  });
-}
-
-function closeOpenItems(self, events) {
-  if (self._textItem && !self._textItem.done) {
-    self._textItem.done = true;
-    events.push({
-      type: 'response.output_text.done',
-      item_id: self._textItem.id,
-      output_index: self._textItem.outputIndex,
-      content_index: 0,
-      text: self._textItem.text,
-    });
-    events.push({
-      type: 'response.content_part.done',
-      item_id: self._textItem.id,
-      output_index: self._textItem.outputIndex,
-      content_index: 0,
-      part: { type: 'output_text', text: self._textItem.text, annotations: [] },
-    });
-    events.push({
-      type: 'response.output_item.done',
-      output_index: self._textItem.outputIndex,
-      item: messageOutputItem(self._textItem, 'completed'),
-    });
-  }
-
-  const keys = Object.keys(self._toolItems).sort(function(a, b) {
-    return self._toolItems[a].outputIndex - self._toolItems[b].outputIndex;
-  });
-  for (let i = 0; i < keys.length; i++) {
-    const item = self._toolItems[keys[i]];
-    if (item.done) continue;
-    item.done = true;
-    events.push({
-      type: 'response.function_call_arguments.done',
-      item_id: item.id,
-      output_index: item.outputIndex,
-      arguments: item.arguments,
-    });
-    events.push({
-      type: 'response.output_item.done',
-      output_index: item.outputIndex,
-      item: toolOutputItem(item, 'completed'),
-    });
-  }
-}
-
-function completedOutput(self) {
-  return self._outputItems
-    .slice()
-    .sort(function(a, b) { return a.outputIndex - b.outputIndex; })
-    .map(function(item) {
-      if (Object.prototype.hasOwnProperty.call(item, 'text')) {
-        return messageOutputItem(item, 'completed');
-      }
-      return toolOutputItem(item, 'completed');
-    });
-}
-
-function messageOutputItem(item, status) {
-  return {
-    id: item.id,
-    type: 'message',
-    status,
-    role: 'assistant',
-    content: [
-      { type: 'output_text', text: item.text || '', annotations: [] },
-    ],
-  };
-}
-
-function toolOutputItem(item, status) {
-  return {
-    id: item.id,
-    type: 'function_call',
-    status,
-    call_id: item.callId,
-    name: item.name || '',
-    arguments: item.arguments || '',
-  };
-}
 
 module.exports = openai2responses;
 module.exports.fnString = openai2responses.toString();

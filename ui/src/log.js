@@ -53,16 +53,6 @@ const LogJsonBlock = ({ value }) => (
   </div>
 );
 
-const DetailJsonSection = ({ label, value }) => (
-  <div style={{ marginTop: 12 }}>
-    <div style={{ marginBottom: 6 }}>
-      <Tag color="#108ee9">{label}</Tag>
-    </div>
-    <LogJsonBlock value={value} />
-  </div>
-);
-
-
 const Log=( {baseUrl} ) =>{
 
     const [invokeName,_invokeName] = useState('')
@@ -258,52 +248,121 @@ const Log=( {baseUrl} ) =>{
 
 }
 
-const Detail=( {record} ) =>{
-
+const Detail=({ record }) => {
   const baseUrl = useContext(BaseUrlContext);
   const [rerunVisible, _rerunVisible] = useToggle(false);
 
-  const {value:config = {} } = useAsync( async()=>{
-    const json = await post(`${baseUrl}/invokeInfo/infos`,{
-      page:1, pageSize: 1, invokeName:record.name
-    })
-    if(json.totalElements && json.totalElements==1){
-      return json.content[0]
+  const { value: config = {} } = useAsync(async () => {
+    const json = await post(`${baseUrl}/invokeInfo/infos`, {
+      page: 1, pageSize: 1, invokeName: record.name,
+    });
+    if (json.totalElements && json.totalElements === 1) {
+      return json.content[0];
     }
-    return {}
-  },[])
+    return {};
+  }, []);
+
+  const codeTag = (code) => {
+    if (200 <= code && code < 300) return <Tag color="#4CAF50">{code}</Tag>;
+    if (300 <= code && code < 400) return <Tag color="#f50">{code}</Tag>;
+    if (400 <= code && code < 500) return <Tag color="#faad14">{code}</Tag>;
+    if (500 <= code && code < 600) return <Tag color="#f5222d">{code}</Tag>;
+    return <Tag>{code}</Tag>;
+  };
+
+  const renderSidePanel = () => {
+    const meta = [
+      { label: 'method', value: record.method },
+      { label: 'http code', value: codeTag(record.code) },
+      { label: 'date', value: dayjs(record.date).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss') },
+    ];
+    return (
+      <div style={{ minWidth: 180, padding: '0 0 0 16px', borderLeft: '1px solid #f0f0f0' }}>
+        <div style={{ fontWeight: 600, fontSize: 13, color: '#666', marginBottom: 12 }}>Metadata</div>
+        {meta.map(m => (
+          <div key={m.label} style={{ marginBottom: 10 }}>
+            <div style={{ fontSize: 11, color: '#999', marginBottom: 2 }}>{m.label}</div>
+            <div style={{ fontSize: 13 }}>{m.value}</div>
+          </div>
+        ))}
+      </div>
+    );
+  };
 
   return (
     <>
       <Modal open={rerunVisible}
-          width={1300}
-          title={'rerun'}
-          footer={null}
-          onCancel={_rerunVisible}
-          maskClosable={false}
-          destroyOnClose={true}>
-          <ConfigTest record={{url:record.url,method:record.method,name:record.name,head:record.head,body:record.request,baseUrl:baseUrl,parseFun:config.parseFun} }/>
+        width={1300}
+        title="rerun"
+        footer={null}
+        onCancel={_rerunVisible}
+        maskClosable={false}
+        destroyOnClose={true}>
+        <ConfigTest record={{
+          url: record.url, method: record.method, name: record.name,
+          head: record.head, body: record.request, baseUrl,
+          parseFun: config.parseFun,
+        }} />
       </Modal>
-      <Descriptions title={<span style={{ display: 'flex', alignItems: 'center' }}>
-          <span>{record.descrption}</span>
-          <span style={{ marginLeft: 'auto' }}>
-            {
-              config.name ?
-              <Button icon={<RerunIcon />} onClick={_rerunVisible} size="small"></Button>
-              :''
-            }
-          </span>
-        </span>} bordered >
-        <Descriptions.Item label="url" span={3}>{record.url}</Descriptions.Item>
-        <Descriptions.Item label="http code" >{record.code}</Descriptions.Item>
-        <Descriptions.Item label="method" >{record.method}</Descriptions.Item>
-        <Descriptions.Item label="date" >{dayjs(record.date).tz('Asia/Shanghai').format('YYYY-MM-DD HH:mm:ss')}</Descriptions.Item>
-      </Descriptions>
-      <DetailJsonSection label="request head" value={record.head} />
-      <DetailJsonSection label="request body" value={record.request} />
-      <DetailJsonSection label="response" value={record.response} />
+
+      {/* URL + 元数据行 */}
+      <div style={{
+        display: 'flex', gap: 16, marginBottom: 16,
+        padding: 12, background: '#fafafa', borderRadius: 6, border: '1px solid #f0f0f0',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ fontWeight: 600, fontSize: 13, color: '#666', marginBottom: 6 }}>{record.descrption}</div>
+          <div style={{
+            fontSize: 12, color: '#1677ff', wordBreak: 'break-all',
+            background: '#fff', padding: '6px 10px', borderRadius: 4, border: '1px solid #e8e8e8',
+            fontFamily: 'monospace',
+          }}>
+            {record.method && <Tag color="#1677ff" style={{ marginRight: 6, fontSize: 11 }}>{record.method}</Tag>}
+            {record.url}
+          </div>
+        </div>
+        {renderSidePanel()}
+      </div>
+
+      {/* Head 单独一行 */}
+      <div style={{ marginBottom: 12 }}>
+        <div style={{ marginBottom: 4 }}>
+          <Tag color="#108ee9">Request Headers</Tag>
+        </div>
+        <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 4 }}>
+          <LogJsonBlock value={record.head} />
+        </div>
+      </div>
+
+      {/* Request Body + Response 一行 */}
+      <div style={{ display: 'flex', gap: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ marginBottom: 4 }}>
+            <Tag color="#108ee9">Request Body</Tag>
+          </div>
+          <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 4 }}>
+            <LogJsonBlock value={record.request} />
+          </div>
+        </div>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ marginBottom: 4 }}>
+            <Tag color="#108ee9">Response</Tag>
+          </div>
+          <div style={{ maxHeight: 400, overflow: 'auto', border: '1px solid #f0f0f0', borderRadius: 4 }}>
+            <LogJsonBlock value={record.response} />
+          </div>
+        </div>
+      </div>
+
+      {config.name && (
+        <div style={{ textAlign: 'right', marginTop: 12 }}>
+          <Button icon={<RerunIcon />} onClick={_rerunVisible} size="small">
+            Rerun
+          </Button>
+        </div>
+      )}
     </>
-  )
-}
+  );
+};
 
 export default Log;

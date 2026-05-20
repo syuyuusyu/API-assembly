@@ -136,6 +136,72 @@ class RestfulController extends Controller {
         await this.service.aiStream.stream();
     }
 
+    async deepSeekModels() {
+        const baseInstructions = 'You are Codex, a coding agent based on GPT-5.';
+        const reasoningLevels = [
+            { effort: 'none', display_name: 'None', description: 'No reasoning.' },
+            { effort: 'minimal', display_name: 'Minimal', description: 'Minimal reasoning.' },
+            { effort: 'low', display_name: 'Low', description: 'Low reasoning.' },
+            { effort: 'medium', display_name: 'Medium', description: 'Medium reasoning.' },
+            { effort: 'high', display_name: 'High', description: 'High reasoning.' },
+        ];
+        const codexCompatDefaults = {
+            description: 'Codex-compatible model metadata.',
+            default_reasoning_level: 'medium',
+            supported_reasoning_levels: reasoningLevels,
+            shell_type: 'shell_command',
+            visibility: 'list',
+            supported_in_api: true,
+            priority: 0,
+            supports_reasoning_summaries: true,
+            default_reasoning_summary: 'none',
+            support_verbosity: true,
+            default_verbosity: 'low',
+            apply_patch_tool_type: 'freeform',
+            web_search_tool_type: 'text_and_image',
+            supports_parallel_tool_calls: true,
+            supports_image_detail_original: true,
+            context_window: 272000,
+            max_context_window: 272000,
+            effective_context_window_percent: 95,
+            experimental_supported_tools: [],
+            input_modalities: [ 'text' ],
+            supports_search_tool: true,
+            base_instructions: baseInstructions,
+            model_messages: {
+                instructions_template: `${baseInstructions}\n\n{{ personality }}`,
+                instructions_variables: {
+                    personality_default: '',
+                    personality_friendly: '',
+                    personality_pragmatic: '',
+                },
+            },
+            truncation_policy: {
+                mode: 'tokens',
+                limit: 10000,
+            },
+        };
+        const buildModel = slug => ({
+            ...codexCompatDefaults,
+            slug,
+            id: slug,
+            name: slug,
+            display_name: slug,
+            title: slug,
+            owned_by: 'deepseek',
+            created: 1760000000,
+        });
+        const kknd = {
+            models: [
+                buildModel('deepseek-v4-flash'),
+                buildModel('deepseek-v4-pro'),
+                buildModel('gpt-5.5'),
+            ],
+        };
+        console.log(kknd);
+        this.ctx.body = kknd;
+    }
+
     async invoke() {
         let result = {};
         const queryMap = this.ctx.request.body

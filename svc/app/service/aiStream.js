@@ -45,10 +45,12 @@ class AiStreamService extends Service {
                 requestBody = params;
             }else if(isFunctionString(bodyConfig)){
                 const bodyFn = evil(bodyConfig);
+                this.ctx.logger.info(formatBodyToolsDebugLog('[aiStream] before bodyFn', params));
                 requestBody = await bodyFn.call(createBodyBuilderContext(), params);
                 if (typeof requestBody === 'string') {
                     requestBody = JSON.parse(requestBody);
                 }
+                this.ctx.logger.info(formatBodyToolsDebugLog('[aiStream] after bodyFn', requestBody));
             }else{
                 requestBody = JSON.parse(this.service.restful.parseByqueryMap(bodyConfig, params));
             }
@@ -81,6 +83,7 @@ class AiStreamService extends Service {
 
 		// 向上游发起流式请求
 		this.ctx.logger.info(formatAgentRequestLog(invokeName, activeMethod, requestBody));
+		this.ctx.logger.info(formatAgentRequestDebugLog(invokeName, activeMethod, requestBody));
 		let upstreamRes, upstreamStatus;
 		try {
 			const { res, status } = await this.app.curl(url, {
@@ -180,7 +183,13 @@ class AiStreamService extends Service {
 			// flush 残留在 buffer 中的最后一行（无尾部换行符的情况）
 			if (buffer.trim()) {
 				const tail = buffer.trim();
-				this.ctx.logger.info('[aiStream] buffer tail on end: %s', tail.slice(0, 200));
+				this.ctx.logger.info('[aiStream] buffer tail on end status=%s tail=%s', upstreamStatus, tail.slice(0, 2000));
+				if (upstreamStatus >= 400) {
+					this.ctx.logger.warn('[aiStream] upstream error detail activeMethod=%s request=%s response=%s',
+						activeMethod,
+						safeJsonSlice(requestBody, 4000),
+						tail.slice(0, 4000));
+				}
 				if (tail.startsWith('data: [DONE]')) {
 					passThrough.write('data: [DONE]\n\n');
 				} else if (tail.startsWith('data: ')) {
@@ -243,7 +252,6 @@ class AiStreamService extends Service {
 			passThrough.destroy(err);
 		});
 	}
-
 }
 
 function isFunctionString(value) {
@@ -527,6 +535,95 @@ function formatAgentRequestLog(invokeName, activeMethod, requestBody) {
 	}
 
 	return lines.join('\n');
+}
+
+/**
+ * 请求侧调试日志：用于排查 Responses -> Chat 历史映射是否丢字段。
+ */
+function formatAgentRequestDebugLog(invokeName, activeMethod, requestBody) {
+	const T = (v, len = 160) => {
+		const s = typeof v === 'string' ? v : (JSON.stringify(v) || '');
+		return s.length > len ? s.slice(0, len) + '…' : s;
+	};
+	const msgs = Array.isArray(requestBody.messages) ? requestBody.messages : [];
+	const lines = [
+		`[AGENT REQ DEBUG] ${invokeName}/${activeMethod} keys=${Object.keys(requestBody || {}).join(',')}`,
+		`  model=${requestBody.model || '?'} stream=${requestBody.stream} tool_choice=${T(requestBody.tool_choice)}`,
+		`  tools=${Array.isArray(requestBody.tools) ? requestBody.tools.length : 0} messages=${msgs.length}`,
+	];
+
+	msgs.forEach((msg, idx) => {
+		const parts = [`#${idx}`, `role=${msg.role || '?'}`];
+		const content = msg.content;
+		if (typeof content === 'string') {
+			parts.push(`contentLen=${content.length}`);
+			if (content) parts.push(`content="${T(content, 80)}"`);
+		} else if (Array.isArray(content)) {
+			parts.push(`contentTypes=${content.map(b => b && b.type || '?').join('|')}`);
+		} else if (content == null) {
+			parts.push('content=null');
+		} else {
+			parts.push(`contentType=${typeof content}`);
+		}
+
+		if (typeof msg.reasoning_content === 'string') {
+			parts.push(`reasoningLen=${msg.reasoning_content.length}`);
+			if (msg.reasoning_content) parts.push(`reasoning="${T(msg.reasoning_content, 80)}"`);
+		}
+		if (Array.isArray(msg.tool_calls)) {
+			parts.push(`toolCalls=${msg.tool_calls.map(t => t && (t.id || t.call_id || '?')).join('|')}`);
+		}
+		if (msg.tool_call_id) {
+			parts.push(`toolCallId=${msg.tool_call_id}`);
+		}
+		lines.push(`  ${parts.join('  ')}`);
+	});
+
+	return lines.join('\n');
+}
+
+function safeJsonSlice(value, len) {
+	try {
+		return JSON.stringify(value).slice(0, len);
+	} catch (e) {
+		return String(value).slice(0, len);
+	}
+}
+
+function formatBodyToolsDebugLog(prefix, body) {
+	const summarizeTool = tool => {
+		if (!tool || typeof tool !== 'object') return tool;
+		const fn = tool.function && typeof tool.function === 'object' ? tool.function : tool;
+		return {
+			type: tool.type,
+			name: fn.name || tool.name,
+			keys: Object.keys(tool),
+			namespaceTools: Array.isArray(tool.tools) ? tool.tools.map(t => ({
+				name: t && (t.name || (t.function && t.function.name)),
+				type: t && t.type,
+				keys: t && typeof t === 'object' ? Object.keys(t) : [],
+			})) : undefined,
+			descriptionLen: typeof fn.description === 'string' ? fn.description.length : 0,
+			parametersKeys: fn.parameters && typeof fn.parameters === 'object' ? Object.keys(fn.parameters) : [],
+		};
+	};
+	const summarizeInput = item => {
+		if (!item || typeof item !== 'object') return item;
+		return {
+			type: item.type,
+			role: item.role,
+			name: item.name,
+			call_id: item.call_id,
+			id: item.id,
+		};
+	};
+	const tools = Array.isArray(body && body.tools) ? body.tools : [];
+	const input = Array.isArray(body && body.input) ? body.input : [];
+	const messages = Array.isArray(body && body.messages) ? body.messages : [];
+	return `${prefix} keys=${Object.keys(body || {}).join(',')} model=${body && body.model || '?'} ` +
+		`tools=${tools.length} input=${input.length} messages=${messages.length} ` +
+		`toolSummary=${safeJsonSlice(tools.map(summarizeTool), 6000)} ` +
+		`inputSummary=${safeJsonSlice(input.slice(-8).map(summarizeInput), 2000)}`;
 }
 
 /**

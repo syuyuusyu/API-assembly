@@ -25,5 +25,5 @@ module.exports = app => {
       router.post('/stream/:invokeName/:activeMethod/v1/chat/completions', controller.restful.stream);
       router.post('/stream/:invokeName/:activeMethod/v1/messages', controller.restful.stream);
       router.post('/stream/:invokeName/:activeMethod/responses', controller.restful.stream);
-
+      router.get('/stream/:invokeName/:activeMethod/models', controller.restful.deepSeekModels);
 };
