@@ -7,7 +7,17 @@
  * params is the original request body sent by the client.
  */
 function responses2chatBody(params) {
-  const TARGET_CHAT_MODEL = 'deepseek-v4-flash';
+  const DEFAULT_CHAT_MODEL = 'deepseek-v4-flash';
+  const CHAT_MODEL_ALIASES = {
+    'gpt-5.5': 'deepseek-v4-flash',
+    'ds-flash-mcp': 'deepseek-v4-flash',
+    'ds-flash': 'deepseek-v4-flash',
+    flash: 'deepseek-v4-flash',
+    'deepseek-v4-flash': 'deepseek-v4-flash',
+    'ds-pro': 'deepseek-v4-pro',
+    pro: 'deepseek-v4-pro',
+    'deepseek-v4-pro': 'deepseek-v4-pro',
+  };
 
   function copy(source, target, keys) {
     keys.forEach(key => {
@@ -202,9 +212,28 @@ function responses2chatBody(params) {
     return choice;
   }
 
+  function normalizeChatModel(model) {
+    if (typeof model !== 'string' || !model) return DEFAULT_CHAT_MODEL;
+    return CHAT_MODEL_ALIASES[model] || model;
+  }
+
+  function applyReasoningConfig(source, target) {
+    const reasoning = source && typeof source.reasoning === 'object' ? source.reasoning : {};
+    const effort = source.reasoning_effort || reasoning.effort;
+    if (typeof effort !== 'string' || !effort) return;
+
+    if (effort === 'none' || effort === 'minimal') {
+      target.thinking = { type: 'disabled' };
+      return;
+    }
+
+    target.thinking = { type: 'enabled' };
+    target.reasoning_effort = effort === 'xhigh' || effort === 'max' ? 'max' : 'high';
+  }
+
   const body = params || {};
   const chatBody = {
-    model: TARGET_CHAT_MODEL || body.model,
+    model: normalizeChatModel(body.model),
     messages: [],
     stream: true,
   };
@@ -224,6 +253,7 @@ function responses2chatBody(params) {
   } else if (body.max_tokens != null) {
     chatBody.max_tokens = body.max_tokens;
   }
+  applyReasoningConfig(body, chatBody);
 
   if (body.instructions) {
     chatBody.messages.push({ role: 'system', content: String(body.instructions) });

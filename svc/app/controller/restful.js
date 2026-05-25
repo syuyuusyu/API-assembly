@@ -181,24 +181,24 @@ class RestfulController extends Controller {
                 limit: 10000,
             },
         };
-        const buildModel = slug => ({
+        const buildModel = (slug, displayName, overrides = {}) => ({
             ...codexCompatDefaults,
             slug,
             id: slug,
             name: slug,
-            display_name: slug,
-            title: slug,
+            display_name: displayName,
+            title: displayName,
             owned_by: 'deepseek',
             created: 1760000000,
+            ...overrides,
         });
         const kknd = {
             models: [
-                buildModel('deepseek-v4-flash'),
-                buildModel('deepseek-v4-pro'),
-                buildModel('gpt-5.5'),
+                buildModel('deepseek-v4-flash', 'DeepSeek V4 Flash'),
+                buildModel('deepseek-v4-pro', 'DeepSeek V4 Pro'),
+                buildModel('gpt-5.5', 'GPT-5.5', { visibility: 'hidden' }),
             ],
         };
-        console.log(kknd);
         this.ctx.body = kknd;
     }
 

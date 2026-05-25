@@ -45,12 +45,12 @@ class AiStreamService extends Service {
                 requestBody = params;
             }else if(isFunctionString(bodyConfig)){
                 const bodyFn = evil(bodyConfig);
-                this.ctx.logger.info(formatBodyToolsDebugLog('[aiStream] before bodyFn', params));
+                //this.ctx.logger.info(formatBodyToolsDebugLog('[aiStream] before bodyFn', params));
                 requestBody = await bodyFn.call(createBodyBuilderContext(), params);
                 if (typeof requestBody === 'string') {
                     requestBody = JSON.parse(requestBody);
                 }
-                this.ctx.logger.info(formatBodyToolsDebugLog('[aiStream] after bodyFn', requestBody));
+                //this.ctx.logger.info(formatBodyToolsDebugLog('[aiStream] after bodyFn', requestBody));
             }else{
                 requestBody = JSON.parse(this.service.restful.parseByqueryMap(bodyConfig, params));
             }
