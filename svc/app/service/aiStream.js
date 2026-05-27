@@ -6,6 +6,7 @@ class AiStreamService extends Service {
 	async stream() {
 		const { invokeName, activeMethod } = this.ctx.params;
 		const queryMap = this.ctx.request.body;
+		const originalRequestBody = safeJsonClone(queryMap);
 		console.log('activeMethod', activeMethod);
 	
 
@@ -187,8 +188,10 @@ class AiStreamService extends Service {
 				if (upstreamStatus >= 400) {
 					this.ctx.logger.warn('[aiStream] upstream error detail activeMethod=%s request=%s response=%s',
 						activeMethod,
-						safeJsonSlice(requestBody, 4000),
-						tail.slice(0, 4000));
+						safeJsonSlice(requestBody, 1000),
+						tail.slice(0, 1000));
+					// this.ctx.logger.warn(originalRequestBody);
+					// this.ctx.logger.warn(requestBody);
 				}
 				if (tail.startsWith('data: [DONE]')) {
 					passThrough.write('data: [DONE]\n\n');
@@ -229,12 +232,18 @@ class AiStreamService extends Service {
 				this.ctx.logger.info(formatAgentResponseLog(invokeName, mergedResponse));
 				if (targetEntity.enableLog == '1') {
 					const responseForLog = shouldLogRawChunks ? logChunks : mergedResponse;
+					const requestForLog = shouldLogRawChunks
+						? {
+							originalRequest: originalRequestBody,
+							upstreamRequest: requestBody,
+						}
+						: requestBody;
 					this.app.mysql.insert('invoke_log', {
 						key: requestHead.logKey,
 						name: targetEntity.name,
 						groupName: targetEntity.groupName,
 						code: 200,
-						request: JSON.stringify(requestBody),
+						request: JSON.stringify(requestForLog),
 						response: JSON.stringify(responseForLog),
 						date: this.app.mysql.literals.now,
 						descrption: targetEntity.descrption,
@@ -587,6 +596,14 @@ function safeJsonSlice(value, len) {
 		return JSON.stringify(value).slice(0, len);
 	} catch (e) {
 		return String(value).slice(0, len);
+	}
+}
+
+function safeJsonClone(value) {
+	try {
+		return JSON.parse(JSON.stringify(value));
+	} catch (e) {
+		return value;
 	}
 }
 

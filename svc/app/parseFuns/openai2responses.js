@@ -1,19 +1,3 @@
-/**
- * parseFun: OpenAI Chat Completions streaming format -> OpenAI Responses streaming format
- *
- * Invocation convention in aiStream.js:
- *   fn.call(parseFnObj, chunk, {}, 200, requestHead, requestBody, url)
- *
- * The upstream provider returns chat.completion.chunk SSE objects. This function
- * emits Responses API SSE event objects for Codex clients configured with
- * wire_api = "responses".
- * @param {object} chunk Upstream chat.completion.chunk object.
- * @param {object} res Unused upstream response object.
- * @param {number} status Unused upstream status code.
- * @param {object} head Unused request headers.
- * @param {object} body Unused request body.
- * @param {string} url Unused upstream URL.
- */
 function openai2responses(chunk) {
   function responseEnvelope(self, status, output) {
     return {
@@ -40,6 +24,7 @@ function openai2responses(chunk) {
   function ensureTextItem(self, events) {
     if (self._textItem) return;
     self._textItem = {
+      kind: 'message',
       id: 'msg_' + self._nextOutputIndex,
       outputIndex: self._nextOutputIndex++,
       text: '',
@@ -60,7 +45,40 @@ function openai2responses(chunk) {
     });
   }
 
+  function ensureReasoningItem(self, events) {
+    if (self._reasoningItem) return;
+    self._reasoningItem = {
+      kind: 'reasoning',
+      id: 'rs_' + self._nextOutputIndex,
+      outputIndex: self._nextOutputIndex++,
+      text: '',
+      done: false,
+    };
+    self._outputItems.push(self._reasoningItem);
+    events.push({
+      type: 'response.output_item.added',
+      output_index: self._reasoningItem.outputIndex,
+      item: reasoningOutputItem(self._reasoningItem, 'in_progress'),
+    });
+  }
+
   function closeOpenItems(self, events) {
+    if (self._reasoningItem && !self._reasoningItem.done) {
+      self._reasoningItem.done = true;
+      events.push({
+        type: 'response.reasoning_text.done',
+        item_id: self._reasoningItem.id,
+        output_index: self._reasoningItem.outputIndex,
+        content_index: 0,
+        text: self._reasoningItem.text,
+      });
+      events.push({
+        type: 'response.output_item.done',
+        output_index: self._reasoningItem.outputIndex,
+        item: reasoningOutputItem(self._reasoningItem, 'completed'),
+      });
+    }
+
     if (self._textItem && !self._textItem.done) {
       self._textItem.done = true;
       events.push({
@@ -110,7 +128,10 @@ function openai2responses(chunk) {
       .slice()
       .sort(function(a, b) { return a.outputIndex - b.outputIndex; })
       .map(function(item) {
-        if (Object.prototype.hasOwnProperty.call(item, 'text')) {
+        if (item.kind === 'reasoning') {
+          return reasoningOutputItem(item, 'completed');
+        }
+        if (item.kind === 'message') {
           return messageOutputItem(item, 'completed');
         }
         return toolOutputItem(item, 'completed');
@@ -125,6 +146,18 @@ function openai2responses(chunk) {
       role: 'assistant',
       content: [
         { type: 'output_text', text: item.text || '', annotations: [] },
+      ],
+    };
+  }
+
+  function reasoningOutputItem(item, status) {
+    return {
+      id: item.id,
+      type: 'reasoning',
+      status,
+      summary: [],
+      content: [
+        { type: 'reasoning_text', text: item.text || '' },
       ],
     };
   }
@@ -164,6 +197,7 @@ function openai2responses(chunk) {
     self._model = '';
     self._created = Math.floor(Date.now() / 1000);
     self._responseStarted = false;
+    self._reasoningItem = null;
     self._textItem = null;
     self._toolItems = {};
     self._outputItems = [];
@@ -193,6 +227,18 @@ function openai2responses(chunk) {
     const choice = choices[ci] || {};
     const delta = choice.delta || {};
 
+    if (typeof delta.reasoning_content === 'string' && delta.reasoning_content.length > 0) {
+      ensureReasoningItem(self, events);
+      self._reasoningItem.text += delta.reasoning_content;
+      events.push({
+        type: 'response.reasoning_text.delta',
+        item_id: self._reasoningItem.id,
+        output_index: self._reasoningItem.outputIndex,
+        content_index: 0,
+        delta: delta.reasoning_content,
+      });
+    }
+
     if (typeof delta.content === 'string' && delta.content.length > 0) {
       ensureTextItem(self, events);
       self._textItem.text += delta.content;
@@ -215,6 +261,7 @@ function openai2responses(chunk) {
 
         if (!toolItem) {
           toolItem = {
+            kind: 'function_call',
             id: tc.id || ('call_' + self._nextOutputIndex),
             callId: tc.id || ('call_' + self._nextOutputIndex),
             name: namespacedName ? namespacedName.name : fnName,
@@ -264,8 +311,3 @@ function openai2responses(chunk) {
   }
   return events.length > 0 ? events : null;
 }
-
-
-
-module.exports = openai2responses;
-module.exports.fnString = openai2responses.toString();

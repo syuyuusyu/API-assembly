@@ -1,11 +1,3 @@
-/**
- * API Configuration body builder: Responses request body -> Chat Completions body.
- *
- * Store module.exports.fnString in invoke_info.body. aiStream.js calls it as:
- *   fn.call(helperContext, params)
- *
- * params is the original request body sent by the client.
- */
 function responses2chatBody(params) {
   const DEFAULT_CHAT_MODEL = 'deepseek-v4-flash';
   const CHAT_MODEL_ALIASES = {
@@ -52,18 +44,42 @@ function responses2chatBody(params) {
     return parts.map(part => typeof part === 'string' ? { type: 'text', text: part } : part);
   }
 
+  function contentToReasoningContent(content) {
+    if (!Array.isArray(content)) return '';
+    return content.map(part => {
+      if (typeof part === 'string') return '';
+      if (!part || typeof part !== 'object') return '';
+      if (typeof part.reasoning_content === 'string') return part.reasoning_content;
+      if (typeof part.reasoning === 'string') return part.reasoning;
+      if (part.type === 'reasoning' || part.type === 'reasoning_text') {
+        return part.text || part.summary_text || '';
+      }
+      return '';
+    }).filter(Boolean).join('');
+  }
+
+  function copyReasoning(source, target) {
+    if (!source || !target) return;
+    const reasoning = typeof source.reasoning_content === 'string'
+      ? source.reasoning_content
+      : contentToReasoningContent(source.content);
+    appendReasoning(target, reasoning);
+  }
+
   function inputItemToMessage(item) {
     if (!item || typeof item !== 'object') return null;
 
     if (item.type === 'message') {
-      return {
+      const message = {
         role: item.role === 'developer' ? 'system' : (item.role || 'user'),
         content: contentToChatContent(item.content),
       };
+      if (message.role === 'assistant') copyReasoning(item, message);
+      return message;
     }
 
     if (item.type === 'function_call') {
-      return {
+      const message = {
         role: 'assistant',
         content: null,
         tool_calls: [
@@ -77,6 +93,8 @@ function responses2chatBody(params) {
           },
         ],
       };
+      copyReasoning(item, message);
+      return message;
     }
 
     if (item.type === 'function_call_output') {
@@ -142,6 +160,10 @@ function responses2chatBody(params) {
     });
 
     normalized.forEach(msg => {
+      if (msg && msg.role === 'assistant' && typeof msg.reasoning_content !== 'string') {
+        const reasoning = contentToReasoningContent(msg.content);
+        if (reasoning) msg.reasoning_content = reasoning;
+      }
       if (msg && msg.role === 'assistant' && Array.isArray(msg.tool_calls) &&
           typeof msg.reasoning_content !== 'string') {
         msg.reasoning_content = msg.content || '';
@@ -307,6 +329,3 @@ function responses2chatBody(params) {
 
   return chatBody;
 }
-
-module.exports = responses2chatBody;
-module.exports.fnString = responses2chatBody.toString();
