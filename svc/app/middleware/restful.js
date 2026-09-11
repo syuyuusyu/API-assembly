@@ -21,7 +21,9 @@ module.exports = (options, app) => {
             return;
         }
 
-        const preObj = {};
+        const preObj = {
+            deepseekApiKey: 'Bearer sk-32ed178d46714af7886c2893755e000d',
+        };
 
         if (ctx.request.headers['activeMethod']) {
             preObj.activeMethod = ctx.request.headers['activeMethod'].join(',');

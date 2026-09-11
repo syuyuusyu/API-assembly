@@ -66,6 +66,14 @@ function responses2chatBody(params) {
     appendReasoning(target, reasoning);
   }
 
+  function functionCallName(item) {
+    const name = item && typeof item.name === 'string' ? item.name : '';
+    const namespace = item && typeof item.namespace === 'string' ? item.namespace : '';
+    if (!namespace || !name) return name;
+    const prefix = namespace.endsWith('__') ? namespace : `${namespace}__`;
+    return name.startsWith(prefix) ? name : `${prefix}${name}`;
+  }
+
   function inputItemToMessage(item) {
     if (!item || typeof item !== 'object') return null;
 
@@ -87,7 +95,7 @@ function responses2chatBody(params) {
             id: item.call_id || item.id,
             type: 'function',
             function: {
-              name: item.name || '',
+              name: functionCallName(item),
               arguments: stringify(item.arguments),
             },
           },
@@ -169,6 +177,38 @@ function responses2chatBody(params) {
         msg.reasoning_content = msg.content || '';
       }
     });
+
+    return normalized;
+  }
+
+  function enforceToolCallAdjacency(messages) {
+    if (!Array.isArray(messages) || messages.length === 0) return messages;
+
+    const pending = messages.slice();
+    const normalized = [];
+    for (let i = 0; i < pending.length; i++) {
+      const msg = pending[i];
+      normalized.push(msg);
+
+      const toolCalls = msg && msg.role === 'assistant' && Array.isArray(msg.tool_calls)
+        ? msg.tool_calls
+        : [];
+      if (toolCalls.length === 0) continue;
+
+      toolCalls.forEach(toolCall => {
+        const callId = toolCall && toolCall.id;
+        if (!callId) return;
+        const toolIndex = pending.findIndex((candidate, index) => (
+          index > i &&
+          candidate &&
+          candidate.role === 'tool' &&
+          candidate.tool_call_id === callId
+        ));
+        if (toolIndex < 0) return;
+        const toolMessage = pending.splice(toolIndex, 1)[0];
+        normalized.push(toolMessage);
+      });
+    }
 
     return normalized;
   }
@@ -319,6 +359,7 @@ function responses2chatBody(params) {
     chatBody.messages.push({ role: 'user', content: '' });
   }
   chatBody.messages = normalizeAssistantHistory(chatBody.messages);
+  chatBody.messages = enforceToolCallAdjacency(chatBody.messages);
 
   if (Array.isArray(body.tools)) {
     chatBody.tools = toolsToChatTools(body.tools);

@@ -8,7 +8,8 @@ import { Tabs } from 'antd';
 import { ApiIcon,LogIcon } from './icon';
 
 //let baseUrl = 'http://127.0.0.1:7001'
-let baseUrl = 'http://rest.k8s.orb.local'
+//let baseUrl = 'http://rest.k8s.orb.local'
+let baseUrl = ''
 if(window.KKND && window.KKND.baseUrl){
     baseUrl = window.KKND.baseUrl
 }

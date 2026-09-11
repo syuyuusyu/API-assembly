@@ -196,7 +196,7 @@ class RestfulController extends Controller {
             models: [
                 buildModel('deepseek-v4-flash', 'DeepSeek V4 Flash'),
                 buildModel('deepseek-v4-pro', 'DeepSeek V4 Pro'),
-                buildModel('gpt-5.5', 'GPT-5.5', { visibility: 'hidden' }),
+                buildModel('gpt-5.5', 'GPT-5.5', { visibility: 'hide' }),
             ],
         };
         this.ctx.body = kknd;

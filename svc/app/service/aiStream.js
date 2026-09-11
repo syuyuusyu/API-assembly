@@ -58,7 +58,7 @@ class AiStreamService extends Service {
 			requestHead = JSON.parse(this.service.restful.parseByqueryMap(targetEntity.head, params));
 			// console.log(url);
 			//console.log(requestHead);
-			//this.ctx.logger.info(requestBody);
+			//this.ctx.logger.info(JSON.stringify(requestBody));
 		} catch (e) {
 			this.ctx.status = 500;
 			this.ctx.body = { error: 'Failed to parse entity config', detail: e.message };
@@ -190,8 +190,10 @@ class AiStreamService extends Service {
 						activeMethod,
 						safeJsonSlice(requestBody, 1000),
 						tail.slice(0, 1000));
-					// this.ctx.logger.warn(originalRequestBody);
-					// this.ctx.logger.warn(requestBody);
+					this.ctx.logger.warn(
+						'[responses input summary] %s',
+						JSON.stringify(summarizeResponsesInput(originalRequestBody.input).slice(-80))
+						);
 				}
 				if (tail.startsWith('data: [DONE]')) {
 					passThrough.write('data: [DONE]\n\n');
@@ -686,6 +688,63 @@ function formatAgentResponseLog(invokeName, mergedResponse) {
 	}
 
 	return lines.join('\n');
+}
+
+function summarizeResponsesInput(input) {
+  if (!Array.isArray(input)) return { type: typeof input };
+
+  return input.map((item, index) => {
+    if (!item || typeof item !== 'object') {
+      return { index, primitive: typeof item };
+    }
+
+    if (item.type === 'function_call') {
+      return {
+        index,
+        type: item.type,
+        id: item.id,
+        call_id: item.call_id,
+        name: item.name,
+        status: item.status,
+        argumentsLen: typeof item.arguments === 'string' ? item.arguments.length : null,
+      };
+    }
+
+    if (item.type === 'function_call_output') {
+      return {
+        index,
+        type: item.type,
+        call_id: item.call_id,
+        outputLen: typeof item.output === 'string'
+          ? item.output.length
+          : JSON.stringify(item.output || '').length,
+      };
+    }
+
+    if (item.type === 'reasoning') {
+      return {
+        index,
+        type: item.type,
+        id: item.id,
+        contentTypes: Array.isArray(item.content) ? item.content.map(p => p && p.type) : null,
+      };
+    }
+
+    if (item.type === 'message') {
+      return {
+        index,
+        type: item.type,
+        role: item.role,
+        contentTypes: Array.isArray(item.content) ? item.content.map(p => p && p.type) : typeof item.content,
+      };
+    }
+
+    return {
+      index,
+      type: item.type,
+      keys: Object.keys(item),
+    };
+  });
 }
 
 module.exports = AiStreamService;

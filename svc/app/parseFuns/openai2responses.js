@@ -180,8 +180,13 @@ function openai2responses(chunk) {
 
   function splitNamespacedToolName(name) {
     if (typeof name !== 'string') return null;
-    const match = name.match(/^(mcp__.+?__)(.+)$/);
+
+    // mcp__bill_state__pay_state_query
+    // -> namespace: mcp__bill_state
+    // -> name: pay_state_query
+    const match = name.match(/^(mcp__(?:(?!__).)+)__(.+)$/);
     if (!match) return null;
+
     return {
       namespace: match[1],
       name: match[2],
