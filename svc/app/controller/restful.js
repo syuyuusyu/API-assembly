@@ -136,6 +136,10 @@ class RestfulController extends Controller {
         await this.service.aiStream.stream();
     }
 
+    async aiProtocol() {
+        await this.service.aiProtocol.handle();
+    }
+
     async deepSeekModels() {
         const baseInstructions = 'You are Codex, a coding agent based on GPT-5.';
         const reasoningLevels = [
@@ -194,7 +198,7 @@ class RestfulController extends Controller {
         });
         const kknd = {
             models: [
-                buildModel('deepseek-v4-flash', 'DeepSeek V4 Flash'),
+                buildModel('deepseek-flash', 'DeepSeek Flash'),
                 buildModel('deepseek-v4-pro', 'DeepSeek V4 Pro'),
                 buildModel('gpt-5.5', 'GPT-5.5', { visibility: 'hide' }),
             ],

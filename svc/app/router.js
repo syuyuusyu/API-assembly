@@ -22,8 +22,8 @@ module.exports = app => {
       router.get('/invokeInfo/groupName', controller.restful.groupName);
 
       router.post('/stream/:invokeName/:activeMethod', controller.restful.stream);
-      router.post('/stream/:invokeName/:activeMethod/v1/chat/completions', controller.restful.stream);
-      router.post('/stream/:invokeName/:activeMethod/v1/messages', controller.restful.stream);
-      router.post('/stream/:invokeName/:activeMethod/responses', controller.restful.stream);
+      router.post('/stream/:invokeName/:activeMethod/v1/chat/completions', controller.restful.aiProtocol);
+      router.post('/stream/:invokeName/:activeMethod/v1/messages', controller.restful.aiProtocol);
+      router.post('/stream/:invokeName/:activeMethod/responses', controller.restful.aiProtocol);
       router.get('/stream/:invokeName/:activeMethod/models', controller.restful.deepSeekModels);
 };

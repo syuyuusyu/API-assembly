@@ -1,5 +1,6 @@
 const Service = require('egg').Service;
 const { PassThrough } = require('stream');
+const { StringDecoder } = require('string_decoder');
 
 class AiStreamService extends Service {
 
@@ -134,11 +135,13 @@ class AiStreamService extends Service {
 
 		const logChunks = [];
 		let buffer = '';
+		// 多字节字符（如中文）可能被拆在两个 chunk 之间，用 StringDecoder 保留不完整的字节到下一次
+		const decoder = new StringDecoder('utf8');
 		const parseFnObj = {
 			isThink: false,
 		}
 		upstreamRes.on('data', (chunk) => {
-			const raw = chunk.toString();
+			const raw = decoder.write(chunk);
 			//this.ctx.logger.info('[aiStream] raw chunk: %s', raw.slice(0, 500));
 			buffer += raw;
 			const lines = buffer.split('\n');
@@ -181,6 +184,7 @@ class AiStreamService extends Service {
 		});
 
 		upstreamRes.on('end', () => {
+			buffer += decoder.end();
 			// flush 残留在 buffer 中的最后一行（无尾部换行符的情况）
 			if (buffer.trim()) {
 				const tail = buffer.trim();
@@ -226,13 +230,16 @@ class AiStreamService extends Service {
 			if (logChunks.length > 0) {
 				let mergedResponse = {};
 				try {
-					mergedResponse = parseStreamLogChunks(invokeName, logChunks);
+					mergedResponse = parseStreamLogChunks(url, logChunks);
 				} catch (e) {
 					this.ctx.logger.error('parseStreamLogChunks error', e);
 					mergedResponse = { error: 'Failed to parse log chunks', detail: e.message };
 				}
 				this.ctx.logger.info(formatAgentResponseLog(invokeName, mergedResponse));
 				if (targetEntity.enableLog == '1') {
+					delete requestHead.Authorization;
+					delete requestHead.deepseekApiKey;
+					delete requestBody.deepseekApiKey;
 					const responseForLog = shouldLogRawChunks ? logChunks : mergedResponse;
 					const requestForLog = shouldLogRawChunks
 						? {
@@ -298,14 +305,126 @@ function evil(fn) {
 	return new Fn('return ' + fn)();
 }
 
-function parseStreamLogChunks(invokeName, logChunks) {
+function parseStreamLogChunks(url, logChunks) {
 	if (!Array.isArray(logChunks) || logChunks.length === 0) {
 		return {};
 	}
-	if (invokeName === 'anthropic') {
+
+	let pathname = String(url || '').split('?')[0].toLowerCase();
+	try {
+		pathname = new URL(url).pathname.toLowerCase();
+	} catch (e) {
+		// Keep the path fallback for templated or otherwise non-standard URLs.
+	}
+
+	if (/\/messages\/?$/.test(pathname)) {
 		return parseAnthropicChunks(logChunks);
 	}
+	if (/\/responses\/?$/.test(pathname)) {
+		return parseResponsesChunks(logChunks);
+	}
 	return parseOpenAIChunks(logChunks);
+}
+
+function parseResponsesChunks(chunks) {
+	const result = {
+		id: '',
+		object: 'response',
+		created_at: Math.floor(Date.now() / 1000),
+		status: 'completed',
+		model: '',
+		output: [],
+		usage: null,
+	};
+	const outputItems = new Map();
+	const itemIndexes = new Map();
+	let completedResponse = null;
+
+	const getIndex = chunk => {
+		if (Number.isInteger(chunk.output_index)) return chunk.output_index;
+		if (chunk.item_id && itemIndexes.has(chunk.item_id)) return itemIndexes.get(chunk.item_id);
+		return 0;
+	};
+
+	const ensureItem = (chunk, defaults = {}) => {
+		const index = getIndex(chunk);
+		let item = outputItems.get(index);
+		if (!item) {
+			item = { ...defaults };
+			if (chunk.item_id) item.id = chunk.item_id;
+			outputItems.set(index, item);
+		}
+		if (item.id) itemIndexes.set(item.id, index);
+		if (chunk.item_id) itemIndexes.set(chunk.item_id, index);
+		return item;
+	};
+
+	for (const chunk of chunks) {
+		if (!chunk || typeof chunk !== 'object') continue;
+
+		if (chunk.response && typeof chunk.response === 'object') {
+			Object.assign(result, chunk.response);
+			if (chunk.type === 'response.completed') {
+				completedResponse = chunk.response;
+			}
+		}
+
+		if (chunk.type === 'response.output_item.added' || chunk.type === 'response.output_item.done') {
+			if (chunk.item && typeof chunk.item === 'object') {
+				const index = Number.isInteger(chunk.output_index) ? chunk.output_index : 0;
+				outputItems.set(index, { ...chunk.item });
+				if (chunk.item.id) itemIndexes.set(chunk.item.id, index);
+			}
+			continue;
+		}
+
+		if (chunk.type === 'response.content_part.added' || chunk.type === 'response.content_part.done') {
+			const item = ensureItem(chunk, { type: 'message', role: 'assistant', content: [] });
+			if (!Array.isArray(item.content)) item.content = [];
+			const contentIndex = Number.isInteger(chunk.content_index) ? chunk.content_index : 0;
+			if (chunk.part && typeof chunk.part === 'object') {
+				item.content[contentIndex] = { ...chunk.part };
+			}
+			continue;
+		}
+
+		if (chunk.type === 'response.output_text.delta' || chunk.type === 'response.output_text.done') {
+			const item = ensureItem(chunk, { type: 'message', role: 'assistant', content: [] });
+			if (!Array.isArray(item.content)) item.content = [];
+			const contentIndex = Number.isInteger(chunk.content_index) ? chunk.content_index : 0;
+			const part = item.content[contentIndex] || { type: 'output_text', text: '', annotations: [] };
+			if (chunk.type === 'response.output_text.delta') {
+				part.text = `${part.text || ''}${chunk.delta || ''}`;
+			} else if (typeof chunk.text === 'string') {
+				part.text = chunk.text;
+			}
+			item.content[contentIndex] = part;
+			continue;
+		}
+
+		if (chunk.type === 'response.function_call_arguments.delta' || chunk.type === 'response.function_call_arguments.done') {
+			const item = ensureItem(chunk, { type: 'function_call', arguments: '' });
+			item.type = 'function_call';
+			if (chunk.name) item.name = chunk.name;
+			if (chunk.type === 'response.function_call_arguments.delta') {
+				item.arguments = `${item.arguments || ''}${chunk.delta || ''}`;
+			} else if (typeof chunk.arguments === 'string') {
+				item.arguments = chunk.arguments;
+			}
+		}
+	}
+
+	if (completedResponse && (!Array.isArray(completedResponse.output) || completedResponse.output.length === 0) && outputItems.size > 0) {
+		return {
+			...completedResponse,
+			output: Array.from(outputItems.values()).sort((a, b) => (a.output_index || 0) - (b.output_index || 0)),
+		};
+	}
+	if (completedResponse) return completedResponse;
+	if (outputItems.size > 0) {
+		result.output = Array.from(outputItems.values()).sort((a, b) => (a.output_index || 0) - (b.output_index || 0));
+	}
+	return result;
 }
 
 function parseAnthropicChunks(chunks) {
@@ -654,6 +773,7 @@ function formatAgentResponseLog(invokeName, mergedResponse) {
 		return s.length > len ? s.slice(0, len) + '…' : s;
 	};
 	const isAnthropic = Array.isArray(mergedResponse.content);
+	const isResponses = mergedResponse.object === 'response' || Array.isArray(mergedResponse.output);
 	const lines = [`[AGENT RES] ${invokeName}  model=${mergedResponse.model || '?'}`];
 
 	if (isAnthropic) {
@@ -673,6 +793,24 @@ function formatAgentResponseLog(invokeName, mergedResponse) {
 			}`);
 		}
 		lines.push(`  STOP=${mergedResponse.stop_reason || '?'}  tokens in=${usage.input_tokens ?? '?'} out=${usage.output_tokens ?? '?'}`);
+	} else if (isResponses) {
+		const output = mergedResponse.output || [];
+		const textParts = output
+			.filter(item => item && item.type === 'message')
+			.flatMap(item => Array.isArray(item.content) ? item.content : [])
+			.filter(part => part && typeof part.text === 'string')
+			.map(part => part.text)
+			.join('');
+		const toolCalls = output.filter(item => item && item.type === 'function_call');
+		const usage = mergedResponse.usage || {};
+
+		if (textParts) lines.push(`  TEXT     : ${T(textParts)}`);
+		if (toolCalls.length > 0) {
+			lines.push(`  TOOL_CALLS(${toolCalls.length}): ${
+				toolCalls.map(t => `${t.name || '?'}(${T(t.arguments, 100)})`).join(', ')
+			}`);
+		}
+		lines.push(`  STOP=${mergedResponse.status || '?'}  tokens in=${usage.input_tokens ?? '?'} out=${usage.output_tokens ?? '?'}`);
 	} else {
 		const choice = (mergedResponse.choices || [])[0] || {};
 		const msg = choice.message || {};

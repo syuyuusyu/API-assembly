@@ -345,6 +345,33 @@ const aggregateOpenAIResponse = response => {
     result.message.tool_calls = Object.keys(toolCalls).map(k => toolCalls[k]);
     return result;
   }
+  if (response?.object === 'response' || Array.isArray(response?.output)) {
+    const message = { role: 'assistant', content: '', tool_calls: [] };
+    (response.output || []).forEach(item => {
+      if (item?.type === 'message') {
+        if (item.role) message.role = item.role;
+        (item.content || []).forEach(part => {
+          if (typeof part?.text === 'string') message.content += part.text;
+        });
+      }
+      if (item?.type === 'function_call') {
+        message.tool_calls.push({
+          id: item.call_id || item.id || '',
+          type: 'function',
+          function: {
+            name: item.name || '',
+            arguments: typeof item.arguments === 'string' ? item.arguments : JSON.stringify(item.arguments || {}),
+          },
+        });
+      }
+    });
+    return {
+      message,
+      usage: response.usage,
+      finish_reason: response.status,
+      raw: response,
+    };
+  }
   const choice = response?.choices?.[0] || {};
   return {
     message: choice.message || choice.delta || {},
